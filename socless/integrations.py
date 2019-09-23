@@ -165,7 +165,7 @@ class ExecutionContext:
             Key={
                 "execution_id": self.execution_id
             },
-            UpdateExpression='SET #results.#results.#name = :r, #results.#results.#last_results = :r, #results.#errors = :e',
+            UpdateExpression='SET #results.#results.#name = :r, #results.#results.#last_results = :r, #results.errors = :e',
             ExpressionAttributeValues={
                 ':r': result,
                 ':e': errors
@@ -173,7 +173,7 @@ class ExecutionContext:
             ExpressionAttributeNames={
                 "#results": "results",
                 "#name": state_name,
-                "#last_results": '_Last_Saved_Results'
+                "#last_results": '_Last_Saved_Results',
             }
         )
 
