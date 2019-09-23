@@ -214,7 +214,7 @@ class StateHandler:
                 self.execution_context = ExecutionContext(self.execution_id)
                 self.context = self.execution_context.fetch_context()['results']
                 self.context['execution_id'] = self.execution_id
-                if event['errors']:
+                if 'errors' in event:
                     self.context['errors'] = event['errors']
             else:
                 raise Exception("Execution id not found in non-testing context")
