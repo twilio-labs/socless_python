@@ -237,5 +237,7 @@ class StateHandler:
             raise Exception("Result returned from the integration handler is not a Python dictionary. Must be a Python dictionary")
 
         if not self.testing:
+            print("save to s3 result")
+            print(result)
             self.execution_context.save_state_results(self.state_name,result)
         return result
