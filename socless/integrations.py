@@ -161,11 +161,15 @@ class ExecutionContext:
         """
         RESULTS_TABLE = os.environ.get('SOCLESS_RESULTS_TABLE')
         results_table = boto3.resource('dynamodb').Table(RESULTS_TABLE)
+
+        if errors:
+            error_expression = ",#results.errors = :e"
+
         results_table.update_item(
             Key={
                 "execution_id": self.execution_id
             },
-            UpdateExpression='SET #results.#results.#name = :r, #results.#results.#last_results = :r, #results.errors = :e',
+            UpdateExpression=f'SET #results.#results.#name = :r, #results.#results.#last_results = :r {error_expression}',
             ExpressionAttributeValues={
                 ':r': result,
                 ':e': errors
