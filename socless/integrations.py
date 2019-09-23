@@ -164,10 +164,11 @@ class ExecutionContext:
         results_table.update_item(
             Key={
                 "execution_id": self.execution_id
-                },
-            UpdateExpression='SET #results.#results.#name = :r, #results.#results.#last_results = :r',
+            },
+            UpdateExpression='SET #results.#results.#name = :r, #results.#results.#last_results = :r, #results.#errors = :e',
             ExpressionAttributeValues={
-                ':r': result
+                ':r': result,
+                ':e': self.context['errors']
             },
             ExpressionAttributeNames={
                 "#results": "results",
@@ -237,7 +238,5 @@ class StateHandler:
             raise Exception("Result returned from the integration handler is not a Python dictionary. Must be a Python dictionary")
 
         if not self.testing:
-            print("save to s3 result")
-            print(result)
             self.execution_context.save_state_results(self.state_name,result)
         return result
