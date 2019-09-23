@@ -153,7 +153,7 @@ class ExecutionContext:
             raise Exception("Error: Unable to get execution_id {} from {}".format(self.execution_id, RESULTS_TABLE))
         return item
 
-    def save_state_results(self,state_name,result):
+    def save_state_results(self,state_name,result, errors={}):
         """Save the results of a State's execution to the Execution results table
         Args:
             state_name (str): The name of the state
@@ -168,7 +168,7 @@ class ExecutionContext:
             UpdateExpression='SET #results.#results.#name = :r, #results.#results.#last_results = :r, #results.#errors = :e',
             ExpressionAttributeValues={
                 ':r': result,
-                ':e': self.context['errors']
+                ':e': errors
             },
             ExpressionAttributeNames={
                 "#results": "results",
@@ -238,5 +238,5 @@ class StateHandler:
             raise Exception("Result returned from the integration handler is not a Python dictionary. Must be a Python dictionary")
 
         if not self.testing:
-            self.execution_context.save_state_results(self.state_name,result)
+            self.execution_context.save_state_results(self.state_name,result, errors=self.context['errors'])
         return result
