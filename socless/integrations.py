@@ -242,7 +242,6 @@ class StateHandler:
             raise Exception("Result returned from the integration handler is not a Python dictionary. Must be a Python dictionary")
 
         if not self.testing:
-            if 'errors' not in self.context:
-                self.context['errors'] = {}
-            self.execution_context.save_state_results(self.state_name,result, errors=self.context['errors'])
+            self.execution_context.save_state_results(self.state_name, result, errors=self.context.get('errors', {}))
+
         return result
