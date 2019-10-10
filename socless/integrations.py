@@ -150,10 +150,10 @@ class ExecutionContext:
         },ConsistentRead=True)
         item = item_resp.get("Item",{})
         if not item:
-            raise Exception("Error: Unable to get execution_id {} from {}".format(self.execution_id,RESULTS_TABLE))
+            raise Exception("Error: Unable to get execution_id {} from {}".format(self.execution_id, RESULTS_TABLE))
         return item
 
-    def save_state_results(self,state_name,result):
+    def save_state_results(self,state_name,result, errors={}):
         """Save the results of a State's execution to the Execution results table
         Args:
             state_name (str): The name of the state
@@ -161,14 +161,19 @@ class ExecutionContext:
         """
         RESULTS_TABLE = os.environ.get('SOCLESS_RESULTS_TABLE')
         results_table = boto3.resource('dynamodb').Table(RESULTS_TABLE)
+
+        error_expression = ""
+        expression_attributes = {':r': result}
+        if errors:
+            error_expression = ",#results.errors = :e"
+            expression_attributes[':e'] = errors
+
         results_table.update_item(
             Key={
                 "execution_id": self.execution_id
-                },
-            UpdateExpression='SET #results.#results.#name = :r, #results.#results.#last_results = :r',
-            ExpressionAttributeValues={
-                ':r': result
             },
+            UpdateExpression=f'SET #results.#results.#name = :r, #results.#results.#last_results = :r {error_expression}',
+            ExpressionAttributeValues=expression_attributes,
             ExpressionAttributeNames={
                 "#results": "results",
                 "#name": state_name,
@@ -214,6 +219,8 @@ class StateHandler:
                 self.execution_context = ExecutionContext(self.execution_id)
                 self.context = self.execution_context.fetch_context()['results']
                 self.context['execution_id'] = self.execution_id
+                if 'errors' in event:
+                    self.context['errors'] = event['errors']
             else:
                 raise Exception("Execution id not found in non-testing context")
 
@@ -235,5 +242,6 @@ class StateHandler:
             raise Exception("Result returned from the integration handler is not a Python dictionary. Must be a Python dictionary")
 
         if not self.testing:
-            self.execution_context.save_state_results(self.state_name,result)
+            self.execution_context.save_state_results(self.state_name, result, errors=self.context.get('errors', {}))
+
         return result
