@@ -19,12 +19,12 @@ def test_create_events():
     event = {
         "event_type": "ParamsToStateMachineTester",
         "details": [
-            {"username": "ubalogun","type": "user","id":"1"},
-            {"username": "ubalogun","type": "user","id":"2"},
-            {"username": "ubalogun","type": "user","id":"1"}
+            {"username": "ubalogun", "type": "user", "id": "1"},
+            {"username": "ubalogun", "type": "user", "id": "2"},
+            {"username": "ubalogun", "type": "user", "id": "1"}
         ],
         "playbook": "ParamsToStateMachineTester",
         "dedup_keys": ["username", "id"]
     }
 
-    assert create_events(event,MockLambdaContext())['status'] == True
+    assert create_events(event, MockLambdaContext())['status'] is True

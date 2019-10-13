@@ -14,12 +14,14 @@
 """
 Vault module - Functions for interacting with the vault
 """
-import boto3, os
+import boto3
+import os
 from .utils import gen_id
 __all__ = ['save_to_vault', 'fetch_from_vault', 'remove_from_vault']
 
 VAULT_TOKEN = "vault:"
 SOCLESS_VAULT = os.environ['SOCLESS_VAULT']
+
 
 def save_to_vault(content, prefix=""):
     """Save content to the Vault
@@ -36,14 +38,15 @@ def save_to_vault(content, prefix=""):
     file_id = gen_id()
     if prefix:
         file_id = prefix + file_id
-    bucket.put_object(Key=file_id,Body=content) #TODO: Should I try catch or let it fail here
+    bucket.put_object(Key=file_id, Body=content)  # TODO: Should I try catch or let it fail here
     result = {
-    "file_id": file_id,
-    "vault_id": "{}{}".format(VAULT_TOKEN,file_id)
+        "file_id": file_id,
+        "vault_id": "{}{}".format(VAULT_TOKEN, file_id)
     }
     return result
 
-def fetch_from_vault(file_id,content_only=False):
+
+def fetch_from_vault(file_id, content_only=False):
     """Fetch an item from the Vault
 
     Args:
@@ -65,6 +68,7 @@ def fetch_from_vault(file_id,content_only=False):
     if content_only:
         return meta["content"]
     return meta
+
 
 def remove_from_vault(file_id):
     """Remove an item from the Vault
