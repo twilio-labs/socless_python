@@ -19,9 +19,8 @@ import os, boto3, simplejson as json, hashlib
 from datetime import datetime
 from .utils import gen_id, gen_datetimenow
 
-
-EVENTS_TABLE = os.environ.get('SOCLESS_EVENTS_TABLE','')
-DEDUP_TABLE = os.environ.get('SOCLESS_DEDUP_TABLE','')
+EVENTS_TABLE = os.environ.get('SOCLESS_EVENTS_TABLE', '')
+DEDUP_TABLE = os.environ.get('SOCLESS_DEDUP_TABLE', '')
 event_table = boto3.resource('dynamodb').Table(EVENTS_TABLE)
 dedup_table = boto3.resource('dynamodb').Table(DEDUP_TABLE)
 
@@ -30,7 +29,7 @@ class EventCreator():
     """Handles the creation of an Event
     """
 
-    def __init__(self,event_info):
+    def __init__(self, event_info):
         """
         """
         self.event_info = event_info
@@ -44,28 +43,30 @@ class EventCreator():
             self.created_at = gen_datetimenow()
         else:
             try:
-                datetime.strptime(self.created_at,'%Y-%m-%dT%H:%M:%S.%fZ')
+                datetime.strptime(self.created_at, '%Y-%m-%dT%H:%M:%S.%fZ')
             except:
-                raise Exception("Error: Supplied 'created_at' field is not ISO8601 millisecond-precision string, shifted to UTC")
+                raise Exception(
+                    "Error: Supplied 'created_at' field is not ISO8601 millisecond-precision string, shifted to UTC"
+                )
 
-        self.details = event_info.get('details',{})
-        if not isinstance(self.details,dict):
+        self.details = event_info.get('details', {})
+        if not isinstance(self.details, dict):
             raise Exception("Error: Supplied 'details' is not a dictionary")
 
-        self.data_types = event_info.get('data_types',{})
-        if not isinstance(self.data_types,dict):
+        self.data_types = event_info.get('data_types', {})
+        if not isinstance(self.data_types, dict):
             raise Exception("Error: Supplied 'data_types' is not a dictionary")
 
-        self.event_meta = event_info.get('event_meta',{})
-        if not isinstance(self.event_meta,dict):
+        self.event_meta = event_info.get('event_meta', {})
+        if not isinstance(self.event_meta, dict):
             raise Exception("Error: Supplied 'event_meta' is not a dictionary")
 
-        self.playbook = event_info.get('playbook','')
-        if not isinstance(self.playbook,str):
+        self.playbook = event_info.get('playbook', '')
+        if not isinstance(self.playbook, str):
             raise Exception("Error: Supplied Playbook is not a string")
 
-        self.dedup_keys = event_info.get('dedup_keys',[])
-        if not isinstance(self.dedup_keys,list):
+        self.dedup_keys = event_info.get('dedup_keys', [])
+        if not isinstance(self.dedup_keys, list):
             raise Exception("Error: Supplied 'dedup_keys' field is not a list")
 
         self._id = gen_id()
@@ -75,12 +76,12 @@ class EventCreator():
         self.status_ = 'open'
         self.is_duplicate = False
 
-
     @property
     def dedup_hash(self):
         """Property that returns the deduplication hash
         """
-        sorted_dedup_vals = sorted([self.details[key].lower() for key in self.dedup_keys])
+        sorted_dedup_vals = sorted(
+            [self.details[key].lower() for key in self.dedup_keys])
         dedup_signature = self.event_type.lower() + ''.join(sorted_dedup_vals)
         dedup_hash = hashlib.md5(dedup_signature.encode('utf-8')).hexdigest()
         return dedup_hash
@@ -93,16 +94,26 @@ class EventCreator():
 
         # Correct the assumption that the event is a new investigation if there is an open event currently mapped to the dedup hash
         self._cached_dedup_hash = self.dedup_hash
-        dedup_mapping = dedup_table.get_item(Key={'dedup_hash': self._cached_dedup_hash}).get('Item')
+        dedup_mapping = dedup_table.get_item(
+            Key={
+                'dedup_hash': self._cached_dedup_hash
+            }).get('Item')
 
         if dedup_mapping:
-            current_investigation_id = dedup_mapping.get('current_investigation_id')
+            current_investigation_id = dedup_mapping.get(
+                'current_investigation_id')
             if not current_investigation_id:
-                socless_log.warn('unmapped dedup_hash detected in dedup table', {'dedup_hash': self._cached_dedup_hash})
+                socless_log.warn('unmapped dedup_hash detected in dedup table',
+                                 {'dedup_hash': self._cached_dedup_hash})
                 return
-            current_investigation = event_table.get_item(Key={'id': current_investigation_id}).get('Item')
-            if current_investigation and current_investigation['status_'] != 'closed':
-                self.investigation_id = current_investigation['investigation_id']
+            current_investigation = event_table.get_item(
+                Key={
+                    'id': current_investigation_id
+                }).get('Item')
+            if current_investigation and current_investigation[
+                    'status_'] != 'closed':
+                self.investigation_id = current_investigation[
+                    'investigation_id']
                 self.status_ = 'closed'
                 self.is_duplicate = True
 
@@ -116,7 +127,10 @@ class EventCreator():
             self.deduplicate()
             # Create/Update dedup_hash mapping if the event is an original
             if not self.is_duplicate:
-                new_dedup_mapping = {'dedup_hash': self._cached_dedup_hash, 'current_investigation_id': self.investigation_id}
+                new_dedup_mapping = {
+                    'dedup_hash': self._cached_dedup_hash,
+                    'current_investigation_id': self.investigation_id
+                }
                 dedup_table.put_item(Item=new_dedup_mapping)
             else:
                 pass
@@ -156,21 +170,22 @@ class EventBatch():
 
         self.created_at = event_batch.get('created_at')
 
-        self.details = event_batch.get('details',[{}])
+        self.details = event_batch.get('details', [{}])
         for each in self.details:
-            if not isinstance(each,dict):
-                raise Exception("Error: Details must be a list of dictionaries")
+            if not isinstance(each, dict):
+                raise Exception(
+                    "Error: Details must be a list of dictionaries")
 
-        self.data_types = event_batch.get('data_types',{})
+        self.data_types = event_batch.get('data_types', {})
 
-        self.event_meta = event_batch.get('event_meta',{})
+        self.event_meta = event_batch.get('event_meta', {})
 
-        self.playbook = event_batch.get('playbook','')
-        if not isinstance(self.playbook,str):
+        self.playbook = event_batch.get('playbook', '')
+        if not isinstance(self.playbook, str):
             raise Exception("Error: Supplied Playbook is not a string")
 
-        self.dedup_keys = event_batch.get('dedup_keys',[])
-        if not isinstance(self.dedup_keys,list):
+        self.dedup_keys = event_batch.get('dedup_keys', [])
+        if not isinstance(self.dedup_keys, list):
             raise Exception("Error: Supplied 'dedup_keys' field is not a list")
 
         self.lambda_context = lambda_context
@@ -193,10 +208,11 @@ class EventBatch():
             event = EventCreator(event_info).create()
             # Trigger execution of a playbook if playbook was supplied
             if self.playbook:
-                execution_statuses.append(self.execute_playbook(event,event['investigation_id']))
-        return {"status":True, "message":execution_statuses}
+                execution_statuses.append(
+                    self.execute_playbook(event, event['investigation_id']))
+        return {"status": True, "message": execution_statuses}
 
-    def execute_playbook(self,entry,investigation_id=''):
+    def execute_playbook(self, entry, investigation_id=''):
         """Execute a playbook for an event
         Args:
             event (dict): The event details
@@ -206,26 +222,29 @@ class EventBatch():
             dict: The execution_id, investigation_id and a status indicating if the playbook
                 execution request was successful
         """
-        meta = {'investigation_id':investigation_id, 'playbook': self.playbook}
+        meta = {
+            'investigation_id': investigation_id,
+            'playbook': self.playbook
+        }
         if not investigation_id:
             investigation_id = gen_id()
         RESULTS_TABLE = os.environ.get('SOCLESS_RESULTS_TABLE')
-        playbook_input = {'artifacts':{},'results':{},'errors':{}}
+        playbook_input = {'artifacts': {}, 'results': {}, 'errors': {}}
         playbook_arn = "arn:aws:states:{region}:{accountid}:stateMachine:{stateMachineName}".format(
             region=os.environ['AWS_REGION'],
             accountid=self.lambda_context.invoked_function_arn.split(':')[4],
-            stateMachineName=self.playbook
-        )
+            stateMachineName=self.playbook)
         execution_id = gen_id()
         playbook_input['artifacts']['event'] = entry
         playbook_input['artifacts']['execution_id'] = execution_id
         results_table = boto3.resource('dynamodb').Table(RESULTS_TABLE)
-        save_result_resp = results_table.put_item(Item={
-            "execution_id": execution_id,
-            "datetime": gen_datetimenow(),
-            "investigation_id": investigation_id,
-            "results": playbook_input
-        })
+        save_result_resp = results_table.put_item(
+            Item={
+                "execution_id": execution_id,
+                "datetime": gen_datetimenow(),
+                "investigation_id": investigation_id,
+                "results": playbook_input
+            })
         stepfunctions = boto3.client('stepfunctions')
         try:
             step_resp = stepfunctions.start_execution(
@@ -235,13 +254,33 @@ class EventBatch():
                     "execution_id": execution_id,
                     "artifacts": playbook_input['artifacts']
                 }))
-            socless_log.info('Playbook execution started',dict(meta, **{'statemachinearn': playbook_arn, 'execution_id': execution_id}))
+            socless_log.info(
+                'Playbook execution started',
+                dict(
+                    meta, **{
+                        'statemachinearn': playbook_arn,
+                        'execution_id': execution_id
+                    }))
         except Exception as e:
-            socless_log.error('Failed to start statemachine execution',dict(meta, **{'statemachinearn': playbook_arn, 'execution_id': execution_id, 'error': f"{e}"}))
+            socless_log.error(
+                'Failed to start statemachine execution',
+                dict(
+                    meta, **{
+                        'statemachinearn': playbook_arn,
+                        'execution_id': execution_id,
+                        'error': f"{e}"
+                    }))
             return {"status": False, "message": f"Error: {e}"}
-        return {"status": True, "message": {"execution_id": execution_id,"investigation_id": investigation_id}}
+        return {
+            "status": True,
+            "message": {
+                "execution_id": execution_id,
+                "investigation_id": investigation_id
+            }
+        }
 
-def create_events(event_details,context):
+
+def create_events(event_details, context):
     """Use the EventBatch class to create events
     Args:
         event_details (dict): The details of the events
@@ -249,5 +288,5 @@ def create_events(event_details,context):
     Returns:
         dict containing the execution ids of the created events
     """
-    event_batch = EventBatch(event_details,context)
+    event_batch = EventBatch(event_details, context)
     return event_batch.create_events()

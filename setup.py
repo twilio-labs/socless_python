@@ -13,7 +13,6 @@
 # limitations under the License
 from setuptools import setup, find_packages
 
-
 setup(
     name='socless',
     version='1.5.0',
@@ -24,15 +23,13 @@ setup(
     # author_email='',
     # license='',
     classifiers=[
-    'Intended Audience :: Developers :: Security',
-    'Topic :: Security Orchestration :: Security Automation',
-    # 'License :: :: ',
-    'Programming Language :: Python :: 2.6',
-    'Programming Language :: Python :: 2.7',
+        'Intended Audience :: Developers :: Security',
+        'Topic :: Security Orchestration :: Security Automation',
+        # 'License :: :: ',
+        'Programming Language :: Python :: 2.6',
+        'Programming Language :: Python :: 2.7',
     ],
-
     keywords='socless security orchestration automation',
     packages=['socless'],
-    install_requires=['simplejson','jinja2'],
-    tests_require=['pytest', 'pytest-env']
-)
+    install_requires=['simplejson', 'jinja2'],
+    tests_require=['pytest', 'pytest-env'])
