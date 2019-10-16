@@ -14,3 +14,4 @@ venv*
 
 .cache
 .DS_Store
+.tox
