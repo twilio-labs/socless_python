@@ -15,7 +15,7 @@
 Socless Core
 Contains functions that are used accross Socless
 """
-import boto3, os, uuid, inspect, simplejson as json
+import boto3, os, uuid, simplejson as json, inspect
 from botocore.exceptions import ClientError
 from datetime import datetime
 from .jinja import jinja_env

@@ -15,7 +15,7 @@
 Classes and modules for creating and managing events
 """
 from .logger import socless_log
-import os, boto3, hashlib, simplejson as json
+import os, boto3, simplejson as json, hashlib
 from datetime import datetime
 from .utils import gen_id, gen_datetimenow
 
