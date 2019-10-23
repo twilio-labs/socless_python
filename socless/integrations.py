@@ -14,7 +14,7 @@
 """
 Classes and modules for Integrations
 """
-import boto3, os, json
+import boto3, os, simplejson as json
 from .logger import socless_log
 from .vault import fetch_from_vault
 

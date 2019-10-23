@@ -15,7 +15,7 @@
 Logging library
 """
 from datetime import datetime
-import os, inspect, json
+import os, inspect, simplejson as json
 
 class socless_log:
     ERROR = 'ERROR'
