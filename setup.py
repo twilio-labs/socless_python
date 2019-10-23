@@ -22,8 +22,7 @@ setup(
     classifiers=[
         'Intended Audience :: Developers :: Security',
         'Topic :: Security Orchestration :: Security Automation',
-        'Programming Language :: Python :: 2.6',
-        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.7',
     ],
 
     keywords='socless security orchestration automation',

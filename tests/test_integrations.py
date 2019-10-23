@@ -11,13 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License
-from moto import mock_s3, mock_dynamodb2
-from tests.conftest import s3, dynamodb, setup_vault, setup_tables
-import boto3, os, pytest
+from tests.conftest import * #imports testing boilerplate
 from socless.integrations import *
 from .helpers import mock_integration_handler, MockLambdaContext, dict_to_item
-
-#TODO: Document pytests.ini enviroment variables
 
 #intialize testing data
 TEST_DATA = {
@@ -66,27 +62,27 @@ def root_obj():
 
 @pytest.fixture()
 def TestParamResolver(root_obj):
+    """Instantiates ParameterResolver class from root_obj for use in tests"""
     return ParameterResolver(root_obj)
 
 @pytest.fixture()
 def TestExecutionContext():
+    """Instantiates ExecutionContext class for use in tests"""
     return ExecutionContext("test_execution_context_id")
 
 def test_resolve_jsonpath(TestParamResolver, root_obj):
     assert TestParamResolver.resolve_jsonpath("$.artifacts.event.details.firstname") == root_obj['artifacts']['event']['details']['firstname']
 
 @mock_s3
-def test_resolve_vault_path(s3, TestParamResolver, root_obj):
-    #setup mock bucket for tests
-    boto3.setup_default_session()
+def test_resolve_vault_path(s3, TestParamResolver):
+    #setup SOCless s3 bucket with two test files
     setup_vault()
 
     assert TestParamResolver.resolve_vault_path("vault:socless_vault_tests.txt") == "this came from the vault"
 
 @mock_s3
 def test_resolve_reference(s3, TestParamResolver):
-    #setup mock bucket for tests
-    boto3.setup_default_session()
+    #setup SOCless s3 bucket with two test files
     setup_vault()
 
     # Test with string value
@@ -100,8 +96,7 @@ def test_resolve_reference(s3, TestParamResolver):
 
 @mock_s3
 def test_resolve_parameters(s3, TestParamResolver):
-    #setup mock bucket for tests
-    boto3.setup_default_session()
+    #setup SOCless s3 bucket with two test files
     setup_vault()
 
     # Test with static string, vault reference, JsonPath reference, and conversion
@@ -120,8 +115,7 @@ def test_apply_conversion_from(TestParamResolver):
 
 @mock_dynamodb2
 def test_fetch_context(dynamodb, TestExecutionContext):
-    #setup table
-    boto3.setup_default_session()
+    #setup mock table and insert item for testing
     results_table_name = os.environ['SOCLESS_RESULTS_TABLE']
     client = setup_tables()
     client.put_item(
@@ -153,8 +147,7 @@ def test_execute_with_event_testing():
 
 @mock_dynamodb2
 def test_init_with_event_live(dynamodb):
-    #setup tables
-    boto3.setup_default_session()
+    #setup mock tables and insert item for testing
     client = setup_tables()
     results_table_name = os.environ['SOCLESS_RESULTS_TABLE']
     client.put_item(
@@ -179,7 +172,7 @@ def test_init_with_event_live(dynamodb):
 
 @mock_dynamodb2
 def test_execute_with_event_testing(dynamodb):
-    boto3.setup_default_session()
+    #setup mock tables and insert item for testing
     results_table_name = os.environ['SOCLESS_RESULTS_TABLE']
     client = setup_tables()
     client.put_item(

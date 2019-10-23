@@ -32,6 +32,7 @@ def mock_integration_handler(firstname='', middlename='', lastname=''):
     }
 
 def dict_to_item(raw):
+    """Convert a dictionary to a DynamoDB Item format for put_object."""
     if isinstance(raw, dict):
         return {
             'M': {

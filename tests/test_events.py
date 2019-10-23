@@ -11,15 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License
+from tests.conftest import * #imports testing boilerplate
 from .helpers import MockLambdaContext
-from moto import mock_dynamodb2
-from tests.conftest import setup_tables, dynamodb
-import boto3, os
-
-import responses # because moto breaks requests
-responses.add_passthru('https://')# moto+requests needs this
-responses.add_passthru('http://')# 
-
 
 
 @mock_dynamodb2
@@ -36,8 +29,7 @@ def test_create_events(dynamodb):
         "dedup_keys": ["username", "id"]
     }
 
-    #setup tables
-    boto3.setup_default_session()
+    #setup SOCless dynamoDB tables
     setup_tables()
 
     assert create_events(event,MockLambdaContext())['status'] == True

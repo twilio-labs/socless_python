@@ -11,9 +11,7 @@
 # # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # # See the License for the specific language governing permissions and
 # # limitations under the License
-from moto import mock_s3, mock_dynamodb2
-from tests.conftest import s3, dynamodb, setup_vault
-import os, boto3, pytest
+from tests.conftest import * #imports testing boilerplate
 from socless.socless import fetch_actual_parameters, fetch_from_vault, socless_save_to_vault, parse_parameters, apply_conversion_from, socless_template_string
 
 # initialize test data
@@ -85,7 +83,9 @@ def test_path_pointing_to_string():
 
 @mock_s3
 def test_path_pointing_to_vault_id(s3):
+    #setup SOCless s3 bucket with two test files
     setup_vault()
+
     assert fetch_actual_parameters("$.data.vault_id",TEST_DATA) == "this came from the vault"
 
 def test_path_pointing_to_object():
@@ -102,12 +102,16 @@ def test_jsonpath_with_json_conversion():
 
 @mock_s3
 def test_vault_path_with_json_conversion(s3):
+    #setup SOCless s3 bucket with two test files
     setup_vault()
+
     assert fetch_actual_parameters("vault:socless_vault_tests.json!json",TEST_DATA) == {'hello':'world'}
 
 @mock_s3
 def test_json_path_to_vault_path_with_conversion(s3):
+    #setup SOCless s3 bucket with two test files
     setup_vault()
+
     assert fetch_actual_parameters("$.data.vault_id_json!json",TEST_DATA) == {'hello':'world'}
 
 def test_nested_reference():
@@ -115,12 +119,16 @@ def test_nested_reference():
 
 @mock_s3
 def test_parse_parameters():
+    #setup SOCless s3 bucket with two test files
     setup_vault()
+
     assert parse_parameters(PARSE_TEST_DATA, None) == EXPECTED_RESULTS
 
 @mock_s3
 def test_socless_save_to_vault_saves_cotent_correctly():
+    #setup SOCless s3 bucket with two test files
     setup_vault()
+
     CONTENT_STRING = "Hello there!"
     result = socless_save_to_vault(CONTENT_STRING)
     s3 = boto3.resource('s3')
@@ -129,7 +137,9 @@ def test_socless_save_to_vault_saves_cotent_correctly():
 
 @mock_s3
 def test_socless_fetch_from_vault():
+    #setup SOCless s3 bucket with two test files
     setup_vault()
+
     assert fetch_from_vault('socless_vault_tests.txt') == {"content": "this came from the vault"}
 
 def test_conversion_from_json():
