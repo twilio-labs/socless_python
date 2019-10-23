@@ -11,11 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License
-from socless.events import create_events
+from tests.conftest import * #imports testing boilerplate
 from .helpers import MockLambdaContext
 
 
-def test_create_events():
+@mock_dynamodb2
+def test_create_events(dynamodb):
+    from socless.events import create_events
     event = {
         "event_type": "ParamsToStateMachineTester",
         "details": [
@@ -26,5 +28,8 @@ def test_create_events():
         "playbook": "ParamsToStateMachineTester",
         "dedup_keys": ["username", "id"]
     }
+
+    #setup SOCless dynamoDB tables
+    setup_tables()
 
     assert create_events(event,MockLambdaContext())['status'] == True
