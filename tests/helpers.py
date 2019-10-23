@@ -30,3 +30,21 @@ def mock_integration_handler(firstname='', middlename='', lastname=''):
         "middlename": middlename,
         "lastname": lastname
     }
+
+def dict_to_item(raw):
+    """Convert a dictionary to a DynamoDB Item format for put_object."""
+    if isinstance(raw, dict):
+        return {
+            'M': {
+                k: dict_to_item(v)
+                for k, v in raw.items()
+            }
+        }
+    elif isinstance(raw, list):
+        return {
+            'L': [dict_to_item(v) for v in raw]
+        }
+    elif isinstance(raw, str):
+        return {'S': raw}
+    elif isinstance(raw, int):
+        return {'N': str(raw)}
