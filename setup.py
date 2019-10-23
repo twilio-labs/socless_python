@@ -28,6 +28,6 @@ setup(
 
     keywords='socless security orchestration automation',
     packages=['socless'],
-    install_requires=['jinja2'],
+    install_requires=['simplejson', 'jinja2'],
     tests_require=['tox']
 )
