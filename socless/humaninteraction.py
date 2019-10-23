@@ -127,7 +127,7 @@ def end_human_interaction(message_id, response_body):
     resp_body_with_state_name.update(response_body)
     execution_results['results'] = resp_body_with_state_name
     stepfunctions = boto3.client('stepfunctions')
-    execution_context.save_state_results(receiver,resp_body_with_state_name)
+    execution_context.save_state_results(receiver,response_body)
     try:
         stepfunctions.send_task_success(taskToken=await_token,output=json.dumps(execution_results))
     except ClientError as e:
