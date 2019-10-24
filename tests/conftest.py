@@ -1,7 +1,7 @@
 from moto import mock_s3, mock_dynamodb2
 import boto3, pytest, os
 
-def setup_vault(s3_client):
+def setup_vault():
    """A helper function to instantiate the SOCless vault bucket with test files.
 
    This needs to be wrapped in moto's mock_s3 decorator before calling.
@@ -15,7 +15,7 @@ def setup_vault(s3_client):
    s3_client.put_object(Bucket=bucket_name, Key="socless_vault_tests.json", Body='{"hello":"world"}')
    return s3_client
 
-def setup_tables(dynamodb_client):
+def setup_tables():
    """A helper function to instantiate SOCless dynamoDB tables.
    
    This needs to be wrapped in moto's mock_dynamodb2 decorator before calling.
@@ -78,11 +78,8 @@ def setup_socless(aws_credentials):
       # ensure boto3 is instantiated now, inside the decorators
       boto3.setup_default_session()
 
-      dynamodb_client = boto3.client('dynamodb')
-      setup_tables(dynamodb_client)
+      setup_tables()
+      setup_vault()
 
-      s3_client = boto3.client('s3')
-      setup_vault(s3_client)
-
-      yield dynamodb_client
+      yield
 
