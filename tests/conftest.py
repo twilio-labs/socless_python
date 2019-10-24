@@ -17,11 +17,10 @@ def setup_vault():
 
 def setup_tables():
    """A helper function to instantiate SOCless dynamoDB tables.
-   
-   This needs to be wrapped in moto's mock_dynamodb2 decorator before calling.
 
+   This needs to be wrapped in moto's mock_dynamodb2 decorator before calling.
    Returns:
-      boto3 dynamodb client in case you need to put_object for tests.
+      boto3 dynamodb client
    """
    dynamodb_client = boto3.client('dynamodb')
 
@@ -72,7 +71,7 @@ def setup_socless(aws_credentials):
    This fixture is automatically run at the start of every test, and will 
    wrap that test in the required moto decorators. Further boto3 calls can be
    made to the dynamodb and s3 clients in tests, other AWS clients will need 
-   their respective moto decorator to function properly. 
+   their respective moto decorator (@mock_ssm, etc..) to function properly. 
    """
    with mock_dynamodb2(), mock_s3(): # use moto decorators to mock boto3 calls
       # ensure boto3 is instantiated now, inside the decorators
