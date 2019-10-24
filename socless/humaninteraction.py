@@ -144,7 +144,7 @@ def end_human_interaction(message_id, response_body):
         UpdateExpression="SET fulfilled = :fulfilled, response_payload = :response_payload",
         ExpressionAttributeValues={
             ":fulfilled": True,
-            ":response_payload": resp_body_with_state_name
+            ":response_payload": response_body
             }
         )
     except Exception as e:

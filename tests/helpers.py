@@ -31,20 +31,30 @@ def mock_integration_handler(firstname='', middlename='', lastname=''):
         "lastname": lastname
     }
 
-def dict_to_item(raw):
-    """Convert a dictionary to a DynamoDB Item format for put_object."""
+def dict_to_item(raw,convert_root=True):
+    """Convert a dictionary object to a DynamoDB Item format for put_object
+
+    Args:
+        raw (dict): The python type to convert
+        convert_root (bool): If a dictionary,
+
+    """
     if isinstance(raw, dict):
-        return {
+        item = {
             'M': {
                 k: dict_to_item(v)
                 for k, v in raw.items()
             }
         }
     elif isinstance(raw, list):
-        return {
+        item =  {
             'L': [dict_to_item(v) for v in raw]
         }
     elif isinstance(raw, str):
-        return {'S': raw}
+        item =  {'S': raw}
+    elif isinstance(raw,bool):
+        item =  {'BOOL': raw}
     elif isinstance(raw, int):
-        return {'N': str(raw)}
+        item =  {'N': str(raw)}
+
+    return item if convert_root else item['M']
