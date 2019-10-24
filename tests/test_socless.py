@@ -81,11 +81,7 @@ context = {
 def test_path_pointing_to_string():
     assert fetch_actual_parameters("$.data.string",TEST_DATA) == TEST_DATA["data"]["string"]
 
-@mock_s3
-def test_path_pointing_to_vault_id(s3):
-    #setup SOCless s3 bucket with two test files
-    setup_vault()
-
+def test_path_pointing_to_vault_id():
     assert fetch_actual_parameters("$.data.vault_id",TEST_DATA) == "this came from the vault"
 
 def test_path_pointing_to_object():
@@ -100,46 +96,26 @@ def test_with_object_input():
 def test_jsonpath_with_json_conversion():
     assert fetch_actual_parameters("$.data.string_json!json", TEST_DATA) == ["hello","world"]
 
-@mock_s3
-def test_vault_path_with_json_conversion(s3):
-    #setup SOCless s3 bucket with two test files
-    setup_vault()
-
+def test_vault_path_with_json_conversion():
     assert fetch_actual_parameters("vault:socless_vault_tests.json!json",TEST_DATA) == {'hello':'world'}
 
-@mock_s3
-def test_json_path_to_vault_path_with_conversion(s3):
-    #setup SOCless s3 bucket with two test files
-    setup_vault()
-
+def test_json_path_to_vault_path_with_conversion():
     assert fetch_actual_parameters("$.data.vault_id_json!json",TEST_DATA) == {'hello':'world'}
 
 def test_nested_reference():
     assert fetch_actual_parameters(TEST_DATA['nested_referer']['object'], TEST_DATA) == {'top_level': 'this_value_is_nested'}
 
-@mock_s3
 def test_parse_parameters():
-    #setup SOCless s3 bucket with two test files
-    setup_vault()
-
     assert parse_parameters(PARSE_TEST_DATA, None) == EXPECTED_RESULTS
 
-@mock_s3
 def test_socless_save_to_vault_saves_cotent_correctly():
-    #setup SOCless s3 bucket with two test files
-    setup_vault()
-
     CONTENT_STRING = "Hello there!"
     result = socless_save_to_vault(CONTENT_STRING)
     s3 = boto3.resource('s3')
     content = s3.Bucket(os.environ['SOCLESS_VAULT']).Object(result['file_id']).get()['Body'].read().decode('utf-8')
     assert content == CONTENT_STRING
 
-@mock_s3
 def test_socless_fetch_from_vault():
-    #setup SOCless s3 bucket with two test files
-    setup_vault()
-
     assert fetch_from_vault('socless_vault_tests.txt') == {"content": "this came from the vault"}
 
 def test_conversion_from_json():

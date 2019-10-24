@@ -15,8 +15,7 @@ from tests.conftest import * #imports testing boilerplate
 from .helpers import MockLambdaContext
 
 
-@mock_dynamodb2
-def test_create_events(dynamodb):
+def test_create_events():
     from socless.events import create_events
     event = {
         "event_type": "ParamsToStateMachineTester",
@@ -28,8 +27,5 @@ def test_create_events(dynamodb):
         "playbook": "ParamsToStateMachineTester",
         "dedup_keys": ["username", "id"]
     }
-
-    #setup SOCless dynamoDB tables
-    setup_tables()
 
     assert create_events(event,MockLambdaContext())['status'] == True

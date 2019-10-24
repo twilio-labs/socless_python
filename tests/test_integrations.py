@@ -73,18 +73,11 @@ def TestExecutionContext():
 def test_resolve_jsonpath(TestParamResolver, root_obj):
     assert TestParamResolver.resolve_jsonpath("$.artifacts.event.details.firstname") == root_obj['artifacts']['event']['details']['firstname']
 
-@mock_s3
-def test_resolve_vault_path(s3, TestParamResolver):
-    #setup SOCless s3 bucket with two test files
-    setup_vault()
+def test_resolve_vault_path(TestParamResolver):
 
     assert TestParamResolver.resolve_vault_path("vault:socless_vault_tests.txt") == "this came from the vault"
 
-@mock_s3
-def test_resolve_reference(s3, TestParamResolver):
-    #setup SOCless s3 bucket with two test files
-    setup_vault()
-
+def test_resolve_reference(TestParamResolver):
     # Test with string value
     assert TestParamResolver.resolve_reference("Hello") == "Hello"
     # Test with JsonPath reference
@@ -94,11 +87,7 @@ def test_resolve_reference(s3, TestParamResolver):
     # Test with dictionary reference
     assert TestParamResolver.resolve_reference({"firstname": "$.artifacts.event.details.firstname"}) == {"firstname": "Sterling"}
 
-@mock_s3
-def test_resolve_parameters(s3, TestParamResolver):
-    #setup SOCless s3 bucket with two test files
-    setup_vault()
-
+def test_resolve_parameters(TestParamResolver):
     # Test with static string, vault reference, JsonPath reference, and conversion
     parameters = {
         "firstname": "$.artifacts.event.details.firstname",
@@ -113,11 +102,10 @@ def test_apply_conversion_from(TestParamResolver):
     # Test convert from json
     assert TestParamResolver.apply_conversion_from('{"text":"hello"}',"json") == {"text":"hello"}
 
-@mock_dynamodb2
-def test_fetch_context(dynamodb, TestExecutionContext):
+def test_fetch_context(TestExecutionContext):
     #setup mock table and insert item for testing
     results_table_name = os.environ['SOCLESS_RESULTS_TABLE']
-    client = setup_tables()
+    client = boto3.client('dynamodb')
     client.put_item(
         TableName=results_table_name,
         Item={
@@ -145,11 +133,10 @@ def test_execute_with_event_testing():
     state_handler = StateHandler(TEST_DATA["EVENT_TESTING_DATA"], MockLambdaContext(), mock_integration_handler)
     assert state_handler.execute() == TEST_DATA["EVENT_TESTING_DATA"]['State_Config']['Parameters']
 
-@mock_dynamodb2
-def test_init_with_event_live(dynamodb):
-    #setup mock tables and insert item for testing
-    client = setup_tables()
+def test_init_with_event_live():
+    #insert test item into mocked table
     results_table_name = os.environ['SOCLESS_RESULTS_TABLE']
+    client = boto3.client('dynamodb')
     client.put_item(
         TableName=results_table_name,
         Item={
@@ -170,11 +157,10 @@ def test_init_with_event_live(dynamodb):
     assert state_handler.context == TEST_DATA['TEST_EXECUTION_DATA_LIVE']['results']
     assert state_handler.integration_handler == mock_integration_handler
 
-@mock_dynamodb2
-def test_execute_with_event_testing(dynamodb):
-    #setup mock tables and insert item for testing
+def test_execute_with_event_testing():
+    #insert test item into mocked table
     results_table_name = os.environ['SOCLESS_RESULTS_TABLE']
-    client = setup_tables()
+    client = boto3.client('dynamodb')
     client.put_item(
         TableName=results_table_name,
         Item={
