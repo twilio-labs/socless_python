@@ -19,10 +19,13 @@ setup(
     version='1.5.0',
     description='Socless core library',
     author='Ubani Balogun',
+    python_requires='>=3.7',
     classifiers=[
         'Intended Audience :: Developers :: Security',
         'Topic :: Security Orchestration :: Security Automation',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3 :: Only',
     ],
 
     keywords='socless security orchestration automation',
