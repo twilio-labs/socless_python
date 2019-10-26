@@ -150,7 +150,7 @@ class ExecutionContext:
         },ConsistentRead=True)
         item = item_resp.get("Item",{})
         if not item:
-            raise Exception("Error: Unable to get execution_id {} from {}".format(self.execution_id, RESULTS_TABLE))
+            raise Exception(f"Error: Unable to get execution_id {self.execution_id} from {RESULTS_TABLE}")
         return item
 
     def save_state_results(self,state_name,result, errors={}):

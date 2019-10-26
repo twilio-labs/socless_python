@@ -73,35 +73,35 @@ class socless_log:
         """
         Write a log message with level info
         """
-        print((self.__log(self.INFO,message,extra)))
+        print(self.__log(self.INFO,message,extra))
 
     @classmethod
     def error(self,message,extra={}):
         """
         Write an error message
         """
-        print((self.__log(self.ERROR, message,extra)))
+        print(self.__log(self.ERROR, message,extra))
 
     @classmethod
     def debug(self,message,extra={}):
         """
         Write a debug message
         """
-        print((self.__log(self.DEBUG, message, extra)))
+        print(self.__log(self.DEBUG, message, extra))
 
     @classmethod
     def critical(self, message, extra={}):
         """
         Write a critical message
         """
-        print((self.__log(self.CRITICAL, message, extra)))
+        print(self.__log(self.CRITICAL, message, extra))
 
     @classmethod
     def warn(self, message, extra={}):
         """
         Write a warning message
         """
-        print((self.__log(self.WARN, message, extra)))
+        print(self.__log(self.WARN, message, extra))
 
 def socless_gen_id(limit=36):
     """Generate an id
@@ -155,7 +155,7 @@ def socless_save_to_vault(content):
     vault.put_object(Key=file_id,Body=content) #TODO: Should I try catch or let it fail here
     result = {
     "file_id": file_id,
-    "vault_id": "{}{}".format(VAULT_TOKEN,file_id)
+    "vault_id": f"{VAULT_TOKEN}{file_id}"
     }
     return result
 
@@ -350,7 +350,7 @@ def socless_execute_playbook(playbook, entry,investigation_id=''):
 
     if not query_result:
         socless_log.warn("Playbook not found",meta)
-        return {"status":False, "message": "No playbook with name {} found".format(playbook)}
+        return {"status":False, "message": f"No playbook with name {playbook} found"}
     else:
         playbook_input = query_result.get('Input')
         playbook_arn = query_result.get('Arn')
@@ -593,7 +593,7 @@ def socless_create_events(event_data,dedup=True):
                 FilterExpression = event_expression
             ExpressionAttributeValues = { ':event_type': event_type, ':status_': 'closed'}
             for key, value in list(dedup_fields.items()):
-                ExpressionAttributeValues[":{}".format(key)] = value
+                ExpressionAttributeValues[f":{key}"] = value
             try:
                 scan_results = event_table.scan(FilterExpression=FilterExpression,ExpressionAttributeValues=ExpressionAttributeValues)
                 while 'LastEvaluatedKey' in scan_results and scan_results['Count'] == 0:
@@ -674,7 +674,7 @@ def socless_fetch_execution_result(execution_id,state_name):
     item = item_resp.get("Item",{})
     if not item:
         socless_log.error('Execution not found', meta)
-        raise Exception("Error: Unable to get execution_id {} from {}".format(execution_id,RESULTS_TABLE))
+        raise Exception(f"Error: Unable to get execution_id {execution_id} from {RESULTS_TABLE}")
     return item
 
 

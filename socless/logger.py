@@ -59,32 +59,32 @@ class socless_log:
         """
         Write a log message with level info
         """
-        print((self.__log(self.INFO,message,extra)))
+        print(self.__log(self.INFO,message,extra))
 
     @classmethod
     def error(self,message,extra={}):
         """
         Write an error message
         """
-        print((self.__log(self.ERROR, message,extra)))
+        print(self.__log(self.ERROR, message,extra))
 
     @classmethod
     def debug(self,message,extra={}):
         """
         Write a debug message
         """
-        print((self.__log(self.DEBUG, message, extra)))
+        print(self.__log(self.DEBUG, message, extra))
 
     @classmethod
     def critical(self, message, extra={}):
         """
         Write a critical message
         """
-        print((self.__log(self.CRITICAL, message, extra)))
+        print(self.__log(self.CRITICAL, message, extra))
 
     @classmethod
     def warn(self, message, extra={}):
         """
         Write a warning message
         """
-        print((self.__log(self.WARN, message, extra)))
+        print(self.__log(self.WARN, message, extra))

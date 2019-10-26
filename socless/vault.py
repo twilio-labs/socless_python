@@ -39,7 +39,7 @@ def save_to_vault(content, prefix=""):
     bucket.put_object(Key=file_id,Body=content) #TODO: Should I try catch or let it fail here
     result = {
     "file_id": file_id,
-    "vault_id": "{}{}".format(VAULT_TOKEN,file_id)
+    "vault_id": f"{VAULT_TOKEN}{file_id}"
     }
     return result
 
