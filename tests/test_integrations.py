@@ -107,7 +107,6 @@ MOCK_DB_CONTEXT = {
   }
 }
 
-@pytest.fixture
 def test_state_handler_with_task_token():
     client = boto3.client('dynamodb')
     #  Setup DB context for the state handler
@@ -119,10 +118,7 @@ def test_state_handler_with_task_token():
     state_handler = StateHandler(TEST_SFN_CONTEXT, MockLambdaContext(), mock_integration_handler)
     assert state_handler.execution_id == TEST_SFN_CONTEXT['sfn_context']['artifacts']['execution_id']
     assert state_handler.task_token == TEST_SFN_CONTEXT['task_token']
-    assert state_handler.state_name == TEST_SFN_CONTEXT['sfn_context']['State_Config']['state_name']
-    assert state_handler.investigation_id == MOCK_DB_CONTEXT['investigation_id']
-    assert state_hander.datetime == MOCK_DB_CONTEXT['datetime']
-    assert state_handler.results == MOCK_DB_CONTEXT['results']
+    assert state_handler.state_name == TEST_SFN_CONTEXT['sfn_context']['State_Config']['Name']
 
 @pytest.fixture()
 def root_obj():
