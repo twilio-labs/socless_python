@@ -194,10 +194,16 @@ class StateHandler:
             include_playbook_context (bool): Set to `True` to make the full context object of the executing playbook available to the integration
         """
         #TODO: Figure out how to handle include_event
-        self.event = event
-        self.testing = bool(event.get('_testing'))
+        if "task_token" in event:
+            self.task_token = event['task_token']
+            self.event = event['sfn_context']
+        else:
+            self.task_token = ""
+            self.event = event
+
+        self.testing = bool(self.event.get('_testing'))
         try:
-            self.state_config = event['State_Config']
+            self.state_config = self.event['State_Config']
         except:
             raise KeyError("No State_Config was passed to the integration")
 
@@ -211,16 +217,19 @@ class StateHandler:
         except:
             raise KeyError("`Parameters` not set in State_Config")
 
-        self.execution_id = event.get('execution_id','')
+        self.execution_id = self.event.get('execution_id','')
         if self.testing:
-            self.context = event
+            self.context = self.event
         else:
             if self.execution_id:
                 self.execution_context = ExecutionContext(self.execution_id)
                 self.context = self.execution_context.fetch_context()['results']
                 self.context['execution_id'] = self.execution_id
-                if 'errors' in event:
-                    self.context['errors'] = event['errors']
+                if 'errors' in self.event:
+                    self.context['errors'] = self.event['errors']
+                if self.task_token:
+                    self.context['task_token'] = self.task_token
+                    self.context['state_name'] = self.state_name
             else:
                 raise Exception("Execution id not found in non-testing context")
 
