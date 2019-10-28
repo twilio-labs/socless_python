@@ -116,9 +116,9 @@ def test_state_handler_with_task_token():
     )
 
     state_handler = StateHandler(TEST_SFN_CONTEXT, MockLambdaContext(), mock_integration_handler)
-    assert state_handler.execution_id == TEST_SFN_CONTEXT['sfn_context']['artifacts']['execution_id']
-    assert state_handler.task_token == TEST_SFN_CONTEXT['task_token']
-    assert state_handler.state_name == TEST_SFN_CONTEXT['sfn_context']['State_Config']['Name']
+    assert state_handler.context['execution_id'] == TEST_SFN_CONTEXT['sfn_context']['artifacts']['execution_id']
+    assert state_handler.context['task_token'] == TEST_SFN_CONTEXT['task_token']
+    assert state_handler.context['state_name'] == TEST_SFN_CONTEXT['sfn_context']['State_Config']['Name']
     assert state_handler.context['artifacts'] == MOCK_DB_CONTEXT['results']['artifacts']
     assert state_handler.context['errors'] == MOCK_DB_CONTEXT['results']['errors']
     assert state_handler.context['results'] == MOCK_DB_CONTEXT['results']['results']
