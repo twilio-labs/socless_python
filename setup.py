@@ -17,7 +17,7 @@ from setuptools import setup, find_packages
 setup(
     name='socless',
     version='1.5.0',
-    description='Socless core library',
+    description='SOCless core library',
     author='Ubani Balogun',
     classifiers=[
         'Intended Audience :: Developers :: Security',
