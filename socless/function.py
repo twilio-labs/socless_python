@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 """
-Lambda module - Functions for interacting with boto3 Lambda client
+Function module - Functions for interacting with boto3 Lambda client
 """
 import boto3, os
 from botocore.exceptions import ClientError
