@@ -18,14 +18,14 @@ import boto3, os
 from botocore.exceptions import ClientError
 __all__ = ['get_function_meta_data']
 
-def get_function_meta_data(function_name, quanlifier=""):
+def get_function_meta_data(function_name, qualifier=''):
     try:
         client = boto3.client('lambda')
-        response = client.get_function(
-            FunctionName=function_name,
-            Qualifier=quanlifier
-        )
+        if qualifier:
+            response = client.get_function(FunctionName=function_name,
+                                           Qualifier=qualifier)
+        else:
+            response = client.get_function(FunctionName=function_name)
+        return response
     except ClientError as e:
         print("Unexpected error: %s" % e)
-
-    return response
