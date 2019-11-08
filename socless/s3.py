@@ -15,6 +15,7 @@
 Function module - Functions for interacting with boto3 Lambda client
 """
 import boto3, os
+import simplejson as json
 from botocore.exceptions import ClientError
 __all__ = ['save_to_s3']
 
@@ -23,7 +24,7 @@ def save_to_s3(file_id, content, bucket_name, return_content=False):
 
     Args:
         file_id (str): s3 object key
-        content (str): content of the Object
+        content (obj): the content needs to be saved to S3 bucket, and it can be any format that's JSON serializable
         bucket_name (str): name of the bucket
         return_content (bool): true or false to return the content; set to false by default
     Returns:
@@ -32,7 +33,11 @@ def save_to_s3(file_id, content, bucket_name, return_content=False):
     """
 
     bucket = boto3.resource('s3').Bucket(bucket_name)
-    bucket.put_object(Key=file_id,Body=content)
+    try:
+        #print content
+        bucket.put_object(Key=file_id,Body=json.dumps(content))
+    except ClientError as e:
+        raise Exception("Unexpected error: %s" % e)
 
     if return_content:
         return {
