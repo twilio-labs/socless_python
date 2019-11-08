@@ -220,17 +220,11 @@ class StateHandler:
         self.execution_id = self.event.get('execution_id','')
         if self.testing:
             self.context = self.event
-            self.context['function_name'] = lambda_context.function_name
-            self.context['function_version'] = lambda_context.function_version
-            self.context['function_arn'] = lambda_context.invoked_function_arn
         else:
             if self.execution_id:
                 self.execution_context = ExecutionContext(self.execution_id)
                 self.context = self.execution_context.fetch_context()['results']
                 self.context['execution_id'] = self.execution_id
-                self.context['function_name'] = lambda_context.function_name
-                self.context['function_version'] = lambda_context.function_version
-                self.context['function_arn'] = lambda_context.invoked_function_arn
                 if 'errors' in self.event:
                     self.context['errors'] = self.event['errors']
                 if self.task_token:

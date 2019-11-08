@@ -28,7 +28,7 @@ def save_to_s3(file_id, content, bucket_name, return_content=False):
         bucket_name (str): name of the bucket
         return_content (bool): true or false to return the content; set to false by default
     Returns:
-        A dict containing the file_id (S3 Object path) and vault_id (Socless vault
+        A dict containing the file_id (S3 Object path) and vault_id (Socless logging bucket
         reference) of the saved content
     """
 
