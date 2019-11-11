@@ -133,7 +133,8 @@ class EventCreator():
             'event_meta': self.event_meta,
             'investigation_id': self.investigation_id,
             'status_': self.status_,
-            'is_duplicate': self.is_duplicate
+            'is_duplicate': self.is_duplicate,
+            'playbook': self.playbook
         }
         event_table.put_item(Item=event)
         return event
@@ -189,6 +190,7 @@ class EventBatch():
             event_info['event_type'] = self.event_type
             event_info['event_meta'] = self.event_meta
             event_info['dedup_keys'] = self.dedup_keys
+            event_info['playbook'] = self.playbook
 
             event = EventCreator(event_info).create()
             # Trigger execution of a playbook if playbook was supplied
