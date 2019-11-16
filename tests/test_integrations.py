@@ -16,6 +16,14 @@ from socless.integrations import *
 from .helpers import mock_integration_handler, MockLambdaContext, dict_to_item
 
 #intialize testing data
+
+MOCK_EXECUTION_ID = 'mock_execution_id'
+MOCK_EVENT_ID = 'mock_event_id'
+MOCK_INVESTIGATION_ID = 'mock_investigation_id'
+MOCK_TASK_TOKEN = 'mock_task_token'
+MOCK_STATE_NAME = "HelloWorld"
+
+
 TEST_DATA = {
     "TEST_EXECUTION_DATA": {"datetime": "test_date_time", "execution_id": "test_execution_context_id", "investigation_id":"test_investigation_id", "results": {"artifacts": {"execution_id": "test_execution_id"}, "errors": {},"results":{}}},
     "TEST_EXECUTION_DATA_LIVE": {"datetime": "test_date_time", "execution_id": "test_execution_context_id", "investigation_id":"test_investigation_id", "results": {"artifacts": {"execution_id": "test_execution_id"}, "errors": {},"results":{},'execution_id':'test_execution_context_id'}},
@@ -45,6 +53,75 @@ TEST_DATA = {
         }
     }
 }
+
+TEST_SFN_CONTEXT = {
+	'task_token': MOCK_TASK_TOKEN,
+	'sfn_context': {
+		'execution_id': MOCK_EXECUTION_ID,
+		'artifacts': {
+			'event': {
+				'id': MOCK_EVENT_ID,
+				'created_at': 'some_point_in_time_and_space',
+				'data_types': {},
+				'details': {
+                    "some": "randon text"
+				},
+				'event_type': 'Test Human Interaction Workflow',
+				'event_meta': {},
+				'investigation_id': MOCK_INVESTIGATION_ID,
+				'status_': 'open',
+				'is_duplicate': False
+			},
+			'execution_id': MOCK_EXECUTION_ID
+		},
+		'State_Config': {
+			'Name': MOCK_STATE_NAME,
+			'Parameters': {}
+		}
+	}
+}
+
+MOCK_DB_CONTEXT = {
+  "datetime": "some_point_in_time_and_space",
+  "execution_id": "mock_execution_id",
+  "investigation_id": "mock_investigation_id",
+  "results": {
+    'artifacts': {
+        'event': {
+            'id': MOCK_EVENT_ID,
+            'created_at': 'some_point_in_time_and_space',
+            'data_types': {},
+            'details': {
+                "some": "randon text"
+            },
+            'event_type': 'Test Human Interaction Workflow',
+            'event_meta': {},
+            'investigation_id': MOCK_INVESTIGATION_ID,
+            'status_': 'open',
+            'is_duplicate': False
+        },
+        'execution_id': MOCK_EXECUTION_ID
+    },
+    "errors": {},
+    "results": {}
+  }
+}
+
+def test_state_handler_with_task_token():
+    client = boto3.client('dynamodb')
+    #  Setup DB context for the state handler
+    client.put_item(
+        TableName=os.environ['SOCLESS_RESULTS_TABLE'],
+        Item=dict_to_item(MOCK_DB_CONTEXT,convert_root=False)
+    )
+
+    state_handler = StateHandler(TEST_SFN_CONTEXT, MockLambdaContext(), mock_integration_handler)
+    assert state_handler.context['execution_id'] == TEST_SFN_CONTEXT['sfn_context']['artifacts']['execution_id']
+    assert state_handler.context['task_token'] == TEST_SFN_CONTEXT['task_token']
+    assert state_handler.context['state_name'] == TEST_SFN_CONTEXT['sfn_context']['State_Config']['Name']
+    assert state_handler.context['artifacts'] == MOCK_DB_CONTEXT['results']['artifacts']
+    assert state_handler.context['errors'] == MOCK_DB_CONTEXT['results']['errors']
+    assert state_handler.context['results'] == MOCK_DB_CONTEXT['results']['results']
 
 @pytest.fixture()
 def root_obj():
@@ -109,7 +186,7 @@ def test_fetch_context(TestExecutionContext):
     client.put_item(
         TableName=results_table_name,
         Item={
-            "datetime": { "S":"test_date_time" }, 
+            "datetime": { "S":"test_date_time" },
             "execution_id": { "S":"test_execution_context_id" },
             "investigation_id": { "S":"test_investigation_id" },
             "results": dict_to_item({"artifacts": {"execution_id": "test_execution_id"}, "errors": {},"results":{}})
@@ -140,7 +217,7 @@ def test_init_with_event_live():
     client.put_item(
         TableName=results_table_name,
         Item={
-            "datetime": { "S":"test_date_time" }, 
+            "datetime": { "S":"test_date_time" },
             "execution_id": { "S":"test_execution_context_id" },
             "investigation_id": { "S":"test_investigation_id" },
             "results": dict_to_item({"artifacts": {"execution_id": "test_execution_id"}, "errors": {},"results":{},'execution_id':'test_execution_context_id'})
@@ -164,7 +241,7 @@ def test_execute_with_event_testing():
     client.put_item(
         TableName=results_table_name,
         Item={
-            "datetime": { "S":"test_date_time" }, 
+            "datetime": { "S":"test_date_time" },
             "execution_id": { "S":"test_state_handler" },
             "investigation_id": { "S":"test_state_handler" },
             "results": dict_to_item({"execution_id": "test_state_handler","artifacts": {},"results":{}})

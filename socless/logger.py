@@ -88,3 +88,15 @@ class socless_log:
         Write a warning message
         """
         print(self.__log(self.WARN, message, extra))
+
+
+def socless_log_then_raise(error_string, extras={}):
+    """Log an error then raise an exception
+    Args:
+        error_string (str): The error message to log and raise
+        extras (dict): Additional key value pairs to log
+    Raises:
+        Exception - Only raises the standard `Exception` error
+    """
+    socless_log.error(error_string, extras)
+    raise Exception(error_string)

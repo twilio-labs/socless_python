@@ -1,4 +1,4 @@
-# Copyright 2018 Twilio, Inc
+# Copyright 2018 Twilio, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,7 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License
-from .socless import *
-from .events import create_events
-from .vault import *
-from .humaninteraction import init_human_interaction, end_human_interaction
+from socless.utils import gen_id, gen_datetimenow
+import unittest
+
+
+def test_gen_datetimenow():
+    """Testing the gen_datetimenow util"""
+    response = gen_datetimenow()
+    assert type(response) == str
+    assert response.endswith('Z')
+
+
+def test_gen_id():
+    """Testing the gen_id util"""
+    response = gen_id(8)
+    assert len(response) == 8
+    assert type(response) == str
