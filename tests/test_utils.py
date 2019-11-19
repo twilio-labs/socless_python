@@ -29,23 +29,23 @@ def test_gen_id():
     assert len(response) == 8
     assert type(response) == str
 
-# def test_convert_empty_strings_to_none():
-#     """Testing the convert_empty_strings_to_none util"""
+def test_convert_empty_strings_to_none():
+    """Testing the convert_empty_strings_to_none util"""
 
-#     testDict = {
-#         "errors": {
-#             "Await_Reverify_Ticket_Type": {
-#             "Error": "States.Timeout",
-#             "Cause": ""
-#             },
-#             "TEST_List" : [],
-#             "TEST_nested_list_empty_dict" : [{"var1" : "", "var2" : {}}],
-#             "TEST_decimals" : 1.5
-#         }
-#     }
+    testDict = {
+        "errors": {
+            "Await_Reverify_Ticket_Type": {
+            "Error": "States.Timeout",
+            "Cause": ""
+            },
+            "TEST_List" : [],
+            "TEST_nested_list_empty_dict" : [{"var1" : "", "var2" : {}}],
+            "TEST_decimals" : 1.5
+        }
+    }
 
-#     expected_output = deepcopy(testDict)
-#     expected_output["errors"]["Cause"] = None
-#     expected_output["errors"]["TEST_nested_list_empty_dict"][0]["var1"] = None
+    expected_output = deepcopy(testDict)
+    expected_output["errors"]['Await_Reverify_Ticket_Type']["Cause"] = None
+    expected_output["errors"]["TEST_nested_list_empty_dict"][0]["var1"] = None
 
-#     assertDictEqual(testDict, expected_output)
+    assert convert_empty_strings_to_none(testDict) == expected_output
