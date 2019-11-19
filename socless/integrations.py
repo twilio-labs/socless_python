@@ -17,6 +17,7 @@ Classes and modules for Integrations
 import boto3, simplejson as json, os
 from .logger import socless_log
 from .vault import fetch_from_vault
+from .utils import convert_empty_strings_to_none
 
 VAULT_TOKEN = "vault:"
 PATH_TOKEN = "$."
@@ -162,9 +163,11 @@ class ExecutionContext:
         RESULTS_TABLE = os.environ.get('SOCLESS_RESULTS_TABLE')
         results_table = boto3.resource('dynamodb').Table(RESULTS_TABLE)
 
-        error_expression = ""
+        error_expression = None
         expression_attributes = {':r': result}
         if errors:
+            #if Timeout, Error cause is empty string.
+            errors = convert_empty_strings_to_none(errors)
             error_expression = ",#results.errors = :e"
             expression_attributes[':e'] = errors
 

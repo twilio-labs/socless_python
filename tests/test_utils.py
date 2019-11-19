@@ -11,8 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License
-from socless.utils import gen_id, gen_datetimenow
+from socless.utils import gen_id, gen_datetimenow, convert_empty_strings_to_none
 import unittest
+from copy import deepcopy
 
 
 def test_gen_datetimenow():
@@ -27,3 +28,24 @@ def test_gen_id():
     response = gen_id(8)
     assert len(response) == 8
     assert type(response) == str
+
+# def test_convert_empty_strings_to_none():
+#     """Testing the convert_empty_strings_to_none util"""
+
+#     testDict = {
+#         "errors": {
+#             "Await_Reverify_Ticket_Type": {
+#             "Error": "States.Timeout",
+#             "Cause": ""
+#             },
+#             "TEST_List" : [],
+#             "TEST_nested_list_empty_dict" : [{"var1" : "", "var2" : {}}],
+#             "TEST_decimals" : 1.5
+#         }
+#     }
+
+#     expected_output = deepcopy(testDict)
+#     expected_output["errors"]["Cause"] = None
+#     expected_output["errors"]["TEST_nested_list_empty_dict"][0]["var1"] = None
+
+#     assertDictEqual(testDict, expected_output)

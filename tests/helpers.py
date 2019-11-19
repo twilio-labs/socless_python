@@ -52,6 +52,7 @@ def dict_to_item(raw,convert_root=True):
         }
     elif isinstance(raw, str):
         item =  {'S': raw}
+        # item =  {'S': raw if raw else None} #replace empty strings with None
     elif isinstance(raw,bool):
         item =  {'BOOL': raw}
     elif isinstance(raw, int):
