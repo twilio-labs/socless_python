@@ -140,4 +140,5 @@ def test_end_human_interaction(state_handler):
 
     MOCK_DB_CONTEXT['results']['results'][MOCK_STATE_NAME] = TEST_RESPONSE
     MOCK_DB_CONTEXT['results']['results']['_Last_Saved_Results'] = TEST_RESPONSE
+
     assert dict_to_item(MOCK_DB_CONTEXT,convert_root=False) == UPDATED_DB_CONTEXT

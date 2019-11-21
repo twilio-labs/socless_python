@@ -163,7 +163,7 @@ class ExecutionContext:
         RESULTS_TABLE = os.environ.get('SOCLESS_RESULTS_TABLE')
         results_table = boto3.resource('dynamodb').Table(RESULTS_TABLE)
 
-        error_expression = None
+        error_expression = ""
         expression_attributes = {':r': result}
         if errors:
             #if Timeout, Error cause is empty string.
