@@ -36,3 +36,16 @@ def gen_datetimenow():
         string: current timestamp in ISO8601 UTC format
     """
     return datetime.utcnow().isoformat() + "Z"
+
+def convert_empty_strings_to_none(nested_dict):
+    converted_dict = {}
+    for k, v in nested_dict.items():
+        if isinstance(v, dict):
+            converted_dict[k] = convert_empty_strings_to_none(v)
+        elif isinstance(v, list):
+            converted_dict[k] = [convert_empty_strings_to_none(l_v) for l_v in v]
+        elif isinstance(v, str):
+            converted_dict[k] = v if v else None
+        else:
+            converted_dict[k] = v
+    return converted_dict
