@@ -17,6 +17,7 @@ from .helpers import MockLambdaContext
 
 def test_create_events():
     from socless.events import create_events
+
     event = {
         "event_type": "ParamsToStateMachineTester",
         "details": [
