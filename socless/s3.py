@@ -37,7 +37,7 @@ def save_to_s3(file_id, content, bucket_name, return_content=False):
         #print content
         bucket.put_object(Key=file_id,Body=json.dumps(content))
     except ClientError as e:
-        raise Exception("Unexpected error: %s" % e)
+        raise Exception(f"Failed to store the log file to S3: {e}")
 
     if return_content:
         return {
