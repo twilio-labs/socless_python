@@ -105,7 +105,6 @@ class EventCreator():
         if dedup_mapping:
             current_investigation_id = dedup_mapping.get('current_investigation_id')
             if not current_investigation_id:
-                return 2
                 socless_log.warn('unmapped dedup_hash detected in dedup table', {'dedup_hash': self._cached_dedup_hash})
                 return
             current_investigation = event_table.get_item(Key={ 'id': current_investigation_id}).get('Item')
