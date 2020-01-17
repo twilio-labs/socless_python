@@ -28,6 +28,16 @@ MOCK_EVENT_BATCH = {
         "dedup_keys": ["username", "id"]
     }
 
+MOCK_EVENT = {
+    "event_info" : "",
+    "event_type": "ParamsToStateMachineTester",
+    "details" : {"username": "ubalogun","type": "user","id":"1"},
+    "data_types" : {},
+    "event_meta" : {},
+    "playbook" : "",
+    "dedup_keys" : [],
+}
+
 def test_EventBatch():
     from socless.events import EventBatch
 
@@ -53,7 +63,7 @@ def test_EventBatch_missing_details():
     assert batched_event.playbook == ""
     assert batched_event.details == [{}]
 
-def test_EventBatch_incorrect_details_type():
+def test_EventBatch_invalid_details_type():
     from socless.events import EventBatch
 
     bad_mock_event_batch = deepcopy(MOCK_EVENT_BATCH)
@@ -62,7 +72,7 @@ def test_EventBatch_incorrect_details_type():
     with pytest.raises(Exception):
         batched_event = EventBatch(bad_mock_event_batch, MockLambdaContext())
 
-def test_EventBatch_incorrect_playbook_type():
+def test_EventBatch_invalid_playbook_type():
     from socless.events import EventBatch
 
     bad_mock_event_batch = deepcopy(MOCK_EVENT_BATCH)
@@ -71,7 +81,7 @@ def test_EventBatch_incorrect_playbook_type():
     with pytest.raises(Exception):
         batched_event = EventBatch(bad_mock_event_batch, MockLambdaContext())
 
-def test_EventBatch_incorrect_dedup_keys_type():
+def test_EventBatch_invalid_dedup_keys_type():
     from socless.events import EventBatch
 
     bad_mock_event_batch = deepcopy(MOCK_EVENT_BATCH)
@@ -79,6 +89,56 @@ def test_EventBatch_incorrect_dedup_keys_type():
 
     with pytest.raises(Exception):
         batched_event = EventBatch(bad_mock_event_batch, MockLambdaContext())
+
+def test_EventCreator():
+    from socless.events import EventCreator
+
+    event_details = EventCreator(MOCK_EVENT)
+
+    assert event_details.event_type == MOCK_EVENT['event_type']
+    # assert event_details.created_at == None # created_at not supplied in mock
+    assert event_details.details == MOCK_EVENT['details']
+    assert event_details.data_types == {} # created_at not supplied in mock
+    assert event_details.dedup_keys == MOCK_EVENT['dedup_keys']
+    assert event_details.event_meta == {}
+    assert event_details.playbook == MOCK_EVENT['playbook']
+
+def test_EventCreator_diff_data():
+    from socless.events import EventCreator
+
+    edited_event_data = deepcopy(MOCK_EVENT)
+
+    edited_event_data['event_type'] = ''
+
+    with pytest.raises(Exception):
+        event_details = EventCreator(edited_event_data)
+
+
+
+def test_EventCreator_dedup_hash():
+    from socless.events import EventCreator
+
+    event = EventCreator(MOCK_EVENT)
+    assert event.dedup_hash == "a0d9bb01f16a80765a8736f00b3da8da"
+
+    edited_mock_event = deepcopy(MOCK_EVENT)
+
+    edited_mock_event['dedup_keys'] = ['username']
+    event = EventCreator(edited_mock_event)
+    assert event.dedup_hash == "0caa90ad7b7fc101b90a8ce0f9638eb9"
+
+
+def test_EventCreator_dedup_hash_invalid_key():
+    from socless.events import EventCreator
+
+    edited_mock_event = deepcopy(MOCK_EVENT)
+
+    edited_mock_event['dedup_keys'] = ['invalid_key']
+    event = EventCreator(edited_mock_event)
+
+    with pytest.raises(KeyError):
+        event.dedup_hash
+
 
 def test_create_events():
     from socless.events import create_events

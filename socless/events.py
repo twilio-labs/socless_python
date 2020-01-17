@@ -30,9 +30,7 @@ class EventCreator():
     """Handles the creation of an Event
     """
 
-    def __init__(self,event_info):
-        """
-        """
+    def __init__(self, event_info):
         self.event_info = event_info
 
         self.event_type = event_info.get('event_type')
@@ -78,7 +76,16 @@ class EventCreator():
 
     @property
     def dedup_hash(self):
-        """Property that returns the deduplication hash
+        """Property that returns the deduplication hash.
+
+        Using the keys in the 'dedup_keys' list, build a single string that 
+        includes each associated value in the 'details' field for this event.
+
+        This string will be the same for every event that is triggered
+        with the exact event details and dedup_keys.
+
+        Returns:
+            A hashed string for deduplicating an event triggered twice.
         """
         sorted_dedup_vals = sorted([self.details[key].lower() for key in self.dedup_keys])
         dedup_signature = self.event_type.lower() + ''.join(sorted_dedup_vals)
