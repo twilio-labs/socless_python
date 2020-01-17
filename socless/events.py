@@ -158,7 +158,7 @@ class EventBatch():
 
         self.created_at = event_batch.get('created_at')
 
-        self.details = event_batch.get('details',[{}])
+        self.details = event_batch.get('details', [{}])
         for each in self.details:
             if not isinstance(each,dict):
                 raise Exception("Error: Details must be a list of dictionaries")
@@ -192,13 +192,14 @@ class EventBatch():
             event_info['event_meta'] = self.event_meta
             event_info['dedup_keys'] = self.dedup_keys
             if self.playbook:
-                event_info['playbook'] = self.playbook    
+                event_info['playbook'] = self.playbook
 
             event = EventCreator(event_info).create()
             # Trigger execution of a playbook if playbook was supplied
             if self.playbook:
                 execution_statuses.append(self.execute_playbook(event,event['investigation_id']))
-        return {"status":True, "message":execution_statuses}
+        
+        return { "status":True, "message":execution_statuses }
 
     def execute_playbook(self,entry,investigation_id=''):
         """Execute a playbook for an event
