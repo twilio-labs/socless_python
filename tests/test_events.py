@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 from tests.conftest import * #imports testing boilerplate
-from .helpers import MockLambdaContext
+from .helpers import MockLambdaContext, dict_to_item
 from pprint import pprint
 from copy import deepcopy
 import pytest
+
+from socless.events import EventCreator, EventBatch
 
 MOCK_EVENT_BATCH = {
         "event_type": "ParamsToStateMachineTester",
@@ -38,9 +40,10 @@ MOCK_EVENT = {
     "dedup_keys" : [],
 }
 
-def test_EventBatch():
-    from socless.events import EventBatch
+DEDUP_HASH_FOR_MOCK_EVENT = "a0d9bb01f16a80765a8736f00b3da8da"
+MOCK_INVESTIGATION_ID = "mock_investigation_id"
 
+def test_EventBatch():
     batched_event = EventBatch(MOCK_EVENT_BATCH, MockLambdaContext())
 
     assert batched_event.event_type == MOCK_EVENT_BATCH['event_type']
@@ -52,8 +55,6 @@ def test_EventBatch():
     assert batched_event.playbook == MOCK_EVENT_BATCH['playbook']
 
 def test_EventBatch_missing_details():
-    from socless.events import EventBatch
-
     bad_mock_event_batch = deepcopy(MOCK_EVENT_BATCH)
     del bad_mock_event_batch['details']
     del bad_mock_event_batch['playbook']
@@ -64,8 +65,6 @@ def test_EventBatch_missing_details():
     assert batched_event.details == [{}]
 
 def test_EventBatch_invalid_details_type():
-    from socless.events import EventBatch
-
     bad_mock_event_batch = deepcopy(MOCK_EVENT_BATCH)
     bad_mock_event_batch['details'] = 'bad_arg'
 
@@ -73,8 +72,6 @@ def test_EventBatch_invalid_details_type():
         batched_event = EventBatch(bad_mock_event_batch, MockLambdaContext())
 
 def test_EventBatch_invalid_playbook_type():
-    from socless.events import EventBatch
-
     bad_mock_event_batch = deepcopy(MOCK_EVENT_BATCH)
     bad_mock_event_batch['playbook'] = ['bad_arg']
 
@@ -82,8 +79,6 @@ def test_EventBatch_invalid_playbook_type():
         batched_event = EventBatch(bad_mock_event_batch, MockLambdaContext())
 
 def test_EventBatch_invalid_dedup_keys_type():
-    from socless.events import EventBatch
-
     bad_mock_event_batch = deepcopy(MOCK_EVENT_BATCH)
     bad_mock_event_batch['dedup_keys'] = 'bad_arg_type'
 
@@ -91,8 +86,6 @@ def test_EventBatch_invalid_dedup_keys_type():
         batched_event = EventBatch(bad_mock_event_batch, MockLambdaContext())
 
 def test_EventCreator():
-    from socless.events import EventCreator
-
     event_details = EventCreator(MOCK_EVENT)
 
     assert event_details.event_type == MOCK_EVENT['event_type']
@@ -103,41 +96,106 @@ def test_EventCreator():
     assert event_details.event_meta == {}
     assert event_details.playbook == MOCK_EVENT['playbook']
 
-def test_EventCreator_diff_data():
-    from socless.events import EventCreator
-
+def test_EventCreator_invalid_event_type():
     edited_event_data = deepcopy(MOCK_EVENT)
-
     edited_event_data['event_type'] = ''
 
     with pytest.raises(Exception):
         event_details = EventCreator(edited_event_data)
 
-
-
 def test_EventCreator_dedup_hash():
-    from socless.events import EventCreator
-
     event = EventCreator(MOCK_EVENT)
-    assert event.dedup_hash == "a0d9bb01f16a80765a8736f00b3da8da"
+    assert event.dedup_hash == DEDUP_HASH_FOR_MOCK_EVENT
 
     edited_mock_event = deepcopy(MOCK_EVENT)
-
     edited_mock_event['dedup_keys'] = ['username']
     event = EventCreator(edited_mock_event)
     assert event.dedup_hash == "0caa90ad7b7fc101b90a8ce0f9638eb9"
 
-
 def test_EventCreator_dedup_hash_invalid_key():
-    from socless.events import EventCreator
-
     edited_mock_event = deepcopy(MOCK_EVENT)
-
     edited_mock_event['dedup_keys'] = ['invalid_key']
-    event = EventCreator(edited_mock_event)
 
+    event = EventCreator(edited_mock_event)
     with pytest.raises(KeyError):
         event.dedup_hash
+
+def test_deduplicate_unique():
+    event = EventCreator(MOCK_EVENT)
+    event.deduplicate()
+    pass
+
+def test_deduplicate_is_duplicate():
+    #  Setup dedup_hash for this event
+
+    client = boto3.client('dynamodb')
+    client.put_item(
+        TableName=os.environ['SOCLESS_DEDUP_TABLE'],
+        Item=dict_to_item({
+                    "dedup_hash": DEDUP_HASH_FOR_MOCK_EVENT,
+                    "current_investigation_id" : MOCK_INVESTIGATION_ID
+                }
+            , convert_root=False)
+    )
+    client.put_item(
+        TableName=os.environ['SOCLESS_EVENTS_TABLE'],
+        Item=dict_to_item({
+                    "id": MOCK_INVESTIGATION_ID,
+                    'investigation_id' : "already_running_id",
+                    'status_' : 'open'
+                }
+            , convert_root=False)
+    )
+
+    event = EventCreator(MOCK_EVENT)
+    event.deduplicate()
+    assert event.is_duplicate == True
+    assert event.status_ == 'closed'
+    assert event.investigation_id == "already_running_id"
+
+def test_deduplicate_is_duplicate_status_closed():
+    #  Setup tables for this event
+    client = boto3.client('dynamodb')
+    client.put_item(
+        TableName=os.environ['SOCLESS_DEDUP_TABLE'],
+        Item=dict_to_item({
+                    "dedup_hash": DEDUP_HASH_FOR_MOCK_EVENT,
+                    "current_investigation_id" : MOCK_INVESTIGATION_ID
+                }
+            , convert_root=False)
+    )
+    client.put_item(
+        TableName=os.environ['SOCLESS_EVENTS_TABLE'],
+        Item=dict_to_item({
+                    "id": MOCK_INVESTIGATION_ID,
+                    'investigation_id' : "already_running_id",
+                    'status_' : 'closed'
+                }
+            , convert_root=False)
+    )
+
+    event = EventCreator(MOCK_EVENT)
+    event.deduplicate()
+    assert event.is_duplicate == False
+    assert event.status_ == 'open'
+
+def test_deduplicate_is_duplicate_no_investigation_id():
+    #  Setup dedup_hash for this event (without investigation id)
+    client = boto3.client('dynamodb')
+    client.put_item(
+        TableName=os.environ['SOCLESS_DEDUP_TABLE'],
+        Item=dict_to_item({
+                    "dedup_hash": DEDUP_HASH_FOR_MOCK_EVENT
+                }
+            , convert_root=False)
+    )
+
+    # investigation_id NOT saved in dedup table, not duplicate
+    event = EventCreator(MOCK_EVENT)
+    event.deduplicate()
+    assert event.status_ == 'open'
+    assert event.is_duplicate == False
+
 
 
 def test_create_events():

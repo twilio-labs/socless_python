@@ -105,13 +105,15 @@ class EventCreator():
         if dedup_mapping:
             current_investigation_id = dedup_mapping.get('current_investigation_id')
             if not current_investigation_id:
+                return 2
                 socless_log.warn('unmapped dedup_hash detected in dedup table', {'dedup_hash': self._cached_dedup_hash})
                 return
-            current_investigation = event_table.get_item(Key={'id': current_investigation_id}).get('Item')
+            current_investigation = event_table.get_item(Key={ 'id': current_investigation_id}).get('Item')
             if current_investigation and current_investigation['status_'] != 'closed':
                 self.investigation_id = current_investigation['investigation_id']
                 self.status_ = 'closed'
                 self.is_duplicate = True
+            
 
         return
 
