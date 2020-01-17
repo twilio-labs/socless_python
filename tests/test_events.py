@@ -43,47 +43,6 @@ MOCK_EVENT = {
 DEDUP_HASH_FOR_MOCK_EVENT = "a0d9bb01f16a80765a8736f00b3da8da"
 MOCK_INVESTIGATION_ID = "mock_investigation_id"
 
-def test_EventBatch():
-    batched_event = EventBatch(MOCK_EVENT_BATCH, MockLambdaContext())
-
-    assert batched_event.event_type == MOCK_EVENT_BATCH['event_type']
-    assert batched_event.created_at == None # created_at not supplied in mock
-    assert batched_event.details == MOCK_EVENT_BATCH['details']
-    assert batched_event.data_types == {} # created_at not supplied in mock
-    assert batched_event.dedup_keys == MOCK_EVENT_BATCH['dedup_keys']
-    assert batched_event.event_meta == {}
-    assert batched_event.playbook == MOCK_EVENT_BATCH['playbook']
-
-def test_EventBatch_missing_details():
-    bad_mock_event_batch = deepcopy(MOCK_EVENT_BATCH)
-    del bad_mock_event_batch['details']
-    del bad_mock_event_batch['playbook']
-
-    batched_event = EventBatch(bad_mock_event_batch, MockLambdaContext())
-
-    assert batched_event.playbook == ""
-    assert batched_event.details == [{}]
-
-def test_EventBatch_invalid_details_type():
-    bad_mock_event_batch = deepcopy(MOCK_EVENT_BATCH)
-    bad_mock_event_batch['details'] = 'bad_arg'
-
-    with pytest.raises(Exception):
-        batched_event = EventBatch(bad_mock_event_batch, MockLambdaContext())
-
-def test_EventBatch_invalid_playbook_type():
-    bad_mock_event_batch = deepcopy(MOCK_EVENT_BATCH)
-    bad_mock_event_batch['playbook'] = ['bad_arg']
-
-    with pytest.raises(Exception):
-        batched_event = EventBatch(bad_mock_event_batch, MockLambdaContext())
-
-def test_EventBatch_invalid_dedup_keys_type():
-    bad_mock_event_batch = deepcopy(MOCK_EVENT_BATCH)
-    bad_mock_event_batch['dedup_keys'] = 'bad_arg_type'
-
-    with pytest.raises(Exception):
-        batched_event = EventBatch(bad_mock_event_batch, MockLambdaContext())
 
 def test_EventCreator():
     event_details = EventCreator(MOCK_EVENT)
@@ -126,8 +85,7 @@ def test_deduplicate_unique():
     pass
 
 def test_deduplicate_is_duplicate():
-    #  Setup dedup_hash for this event
-
+    #  Setup tables for this event
     client = boto3.client('dynamodb')
     client.put_item(
         TableName=os.environ['SOCLESS_DEDUP_TABLE'],
@@ -196,6 +154,65 @@ def test_deduplicate_is_duplicate_no_investigation_id():
     assert event.status_ == 'open'
     assert event.is_duplicate == False
 
+def test_deduplicate_is_unique():
+    event = EventCreator(MOCK_EVENT)
+    event.deduplicate()
+    assert event.status_ == 'open'
+    assert event.is_duplicate == False
+
+def test_EventCreator_create():
+    event = EventCreator(MOCK_EVENT)
+    
+    created_event = event.create()
+
+    #check dedup table
+
+    #check events table
+
+    assert event.details == created_event['details']
+    assert event.created_at == created_event['created_at']
+
+def test_EventBatch():
+    batched_event = EventBatch(MOCK_EVENT_BATCH, MockLambdaContext())
+
+    assert batched_event.event_type == MOCK_EVENT_BATCH['event_type']
+    assert batched_event.created_at == None # created_at not supplied in mock
+    assert batched_event.details == MOCK_EVENT_BATCH['details']
+    assert batched_event.data_types == {} # created_at not supplied in mock
+    assert batched_event.dedup_keys == MOCK_EVENT_BATCH['dedup_keys']
+    assert batched_event.event_meta == {}
+    assert batched_event.playbook == MOCK_EVENT_BATCH['playbook']
+
+def test_EventBatch_missing_details():
+    bad_mock_event_batch = deepcopy(MOCK_EVENT_BATCH)
+    del bad_mock_event_batch['details']
+    del bad_mock_event_batch['playbook']
+
+    batched_event = EventBatch(bad_mock_event_batch, MockLambdaContext())
+
+    assert batched_event.playbook == ""
+    assert batched_event.details == [{}]
+
+def test_EventBatch_invalid_details_type():
+    bad_mock_event_batch = deepcopy(MOCK_EVENT_BATCH)
+    bad_mock_event_batch['details'] = 'bad_arg'
+
+    with pytest.raises(Exception):
+        batched_event = EventBatch(bad_mock_event_batch, MockLambdaContext())
+
+def test_EventBatch_invalid_playbook_type():
+    bad_mock_event_batch = deepcopy(MOCK_EVENT_BATCH)
+    bad_mock_event_batch['playbook'] = ['bad_arg']
+
+    with pytest.raises(Exception):
+        batched_event = EventBatch(bad_mock_event_batch, MockLambdaContext())
+
+def test_EventBatch_invalid_dedup_keys_type():
+    bad_mock_event_batch = deepcopy(MOCK_EVENT_BATCH)
+    bad_mock_event_batch['dedup_keys'] = 'bad_arg_type'
+
+    with pytest.raises(Exception):
+        batched_event = EventBatch(bad_mock_event_batch, MockLambdaContext())
 
 
 def test_create_events():

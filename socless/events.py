@@ -112,19 +112,23 @@ class EventCreator():
                 self.investigation_id = current_investigation['investigation_id']
                 self.status_ = 'closed'
                 self.is_duplicate = True
-            
 
         return
 
     def create(self):
-        """Create an event
+        """Create an event.
+
+        Check if event is duplicate, if not then add it to the dedup table.
         """
         # Deduplicate the event if there are dedup keys set
         if self.dedup_keys:
             self.deduplicate()
             # Create/Update dedup_hash mapping if the event is an original
             if not self.is_duplicate:
-                new_dedup_mapping = {'dedup_hash': self._cached_dedup_hash, 'current_investigation_id': self.investigation_id}
+                new_dedup_mapping = {
+                    'dedup_hash': self._cached_dedup_hash,
+                    'current_investigation_id': self.investigation_id
+                }
                 dedup_table.put_item(Item=new_dedup_mapping)
             else:
                 pass
