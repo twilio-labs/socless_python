@@ -211,12 +211,14 @@ class EventBatch():
             if self.playbook:
                 execution_statuses.append(self.execute_playbook(event,event['investigation_id']))
         
-        return { "status":True, "message":execution_statuses }
+        #! FIX: Will always return true, message is a list of individual
+        #! playbook responses that may be true or false (error) responses
+        return { "status":True, "message": execution_statuses }
 
     def execute_playbook(self,entry,investigation_id=''):
-        """Execute a playbook for an event
+        """Execute a playbook for a SOCless event.
         Args:
-            event (dict): The event details
+            entry (dict): The event details
             investigation_id (str): The investigation_id to use
             playbook (str): The name of the playbook to execute
         Returns:

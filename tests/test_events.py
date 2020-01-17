@@ -14,10 +14,33 @@
 from tests.conftest import * #imports testing boilerplate
 from .helpers import MockLambdaContext, dict_to_item
 from pprint import pprint
+import json, os
 from copy import deepcopy
 import pytest
+from moto import mock_stepfunctions, mock_sts, mock_iam
+from socless.utils import convert_empty_strings_to_none
 
 from socless.events import EventCreator, EventBatch
+
+account_id = os.environ['MOTO_ACCOUNT_ID']
+
+playbook_definition = (
+    '{"Comment": "An example of the Amazon States Language using a choice state.",'
+    '"StartAt": "DefaultState",'
+    '"States": '
+    '{"DefaultState": {"Type": "Fail","Error": "DefaultStateError","Cause": "No Matches!"}}}'
+)
+
+iam_trust_policy_document = {
+        "Version": "2012-10-17",
+        "Statement": {
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": f"arn:aws:iam::{account_id}:root"
+            },
+            "Action": "sts:AssumeRole",
+        },
+    }
 
 MOCK_EVENT_BATCH = {
         "event_type": "ParamsToStateMachineTester",
@@ -214,6 +237,64 @@ def test_EventBatch_invalid_dedup_keys_type():
     with pytest.raises(Exception):
         batched_event = EventBatch(bad_mock_event_batch, MockLambdaContext())
 
+@mock_stepfunctions
+@mock_sts
+@mock_iam
+def test_EventBatch_create_events():
+    # setup playbook
+    iam_client = boto3.client("iam", region_name="us-east-1")
+    sts_client = boto3.client("sts", region_name="us-east-1")
+    iam_role_name = "new-user"
+    iam_role_arn = iam_client.role_arn = iam_client.create_role(
+        RoleName=iam_role_name,
+        AssumeRolePolicyDocument=json.dumps(iam_trust_policy_document),
+    )["Role"]["Arn"]
+
+    client = boto3.client("stepfunctions")
+    sm = client.create_state_machine(
+        name="ParamsToStateMachineTester",
+        definition=str(playbook_definition), 
+        roleArn=iam_role_arn
+    )
+
+    batched_event = EventBatch(MOCK_EVENT_BATCH, MockLambdaContext())
+
+    result = batched_event.create_events()
+
+    #! FIX: result['status'] is always true, message is a list of individual
+    #! playbook responses that may be true or false (error) responses
+    assert result['status'] == True
+
+    assert result['message'][0]['status'] == True
+    assert result['message'][1]['status'] == True
+
+@mock_stepfunctions
+@mock_sts
+@mock_iam
+def test_EventBatch_execute_playbook():
+    # setup playbook
+    iam_client = boto3.client("iam", region_name="us-east-1")
+    sts_client = boto3.client("sts", region_name="us-east-1")
+    iam_role_name = "new-user"
+    iam_role_arn = iam_client.role_arn = iam_client.create_role(
+        RoleName=iam_role_name,
+        AssumeRolePolicyDocument=json.dumps(iam_trust_policy_document),
+    )["Role"]["Arn"]
+
+    client = boto3.client("stepfunctions")
+    sm = client.create_state_machine(
+        name="ParamsToStateMachineTester",
+        definition=str(playbook_definition), 
+        roleArn=iam_role_arn
+    )
+
+    batched_event = EventBatch(MOCK_EVENT_BATCH, MockLambdaContext())
+    result = batched_event.execute_playbook(convert_empty_strings_to_none(MOCK_EVENT))
+
+    pprint(result)
+    assert result['status'] == True
+    assert isinstance(result['message']['execution_id'], str)
+    assert isinstance(result['message']['investigation_id'], str)
 
 def test_create_events():
     from socless.events import create_events

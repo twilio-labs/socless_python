@@ -14,12 +14,15 @@
 """
 Helpers
 """
+import os
+
+account_id = os.environ['MOTO_ACCOUNT_ID']
 
 class MockLambdaContext:
     """Mock Lambda context object
     """
 
-    invoked_function_arn = "arn:aws:lambda:us-west-2:200000000:function:_socless_playground"
+    invoked_function_arn = f"arn:aws:lambda:us-west-2:{account_id}:function:_socless_playground"
 
 
 def mock_integration_handler(firstname='', middlename='', lastname=''):
