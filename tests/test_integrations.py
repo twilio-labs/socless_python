@@ -131,7 +131,8 @@ def root_obj():
                 "details": {
                     "firstname": "Sterling",
                     "middlename": "Malory",
-                    "lastname": "Archer"
+                    "lastname": "Archer",
+                    "vault_test" : "vault:socless_vault_tests.txt"
                 }
             }
         }
@@ -150,8 +151,11 @@ def TestExecutionContext():
 def test_resolve_jsonpath(TestParamResolver, root_obj):
     assert TestParamResolver.resolve_jsonpath("$.artifacts.event.details.firstname") == root_obj['artifacts']['event']['details']['firstname']
 
-def test_resolve_vault_path(TestParamResolver):
+def test_resolve_jsonpath_vault_token(TestParamResolver, root_obj):
+    assert TestParamResolver.resolve_jsonpath("$.artifacts.event.details.vault_test") == "this came from the vault"
 
+
+def test_resolve_vault_path(TestParamResolver):
     assert TestParamResolver.resolve_vault_path("vault:socless_vault_tests.txt") == "this came from the vault"
 
 def test_resolve_reference(TestParamResolver):
@@ -163,6 +167,8 @@ def test_resolve_reference(TestParamResolver):
     assert TestParamResolver.resolve_reference("vault:socless_vault_tests.txt") == "this came from the vault"
     # Test with dictionary reference
     assert TestParamResolver.resolve_reference({"firstname": "$.artifacts.event.details.firstname"}) == {"firstname": "Sterling"}
+    # Test with not dict or string reference
+    assert TestParamResolver.resolve_reference(['test']) == ["test"]
 
 def test_resolve_parameters(TestParamResolver):
     # Test with static string, vault reference, JsonPath reference, and conversion

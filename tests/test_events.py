@@ -71,9 +71,8 @@ def test_EventCreator():
     event_details = EventCreator(MOCK_EVENT)
 
     assert event_details.event_type == MOCK_EVENT['event_type']
-    # assert event_details.created_at == None # created_at not supplied in mock
     assert event_details.details == MOCK_EVENT['details']
-    assert event_details.data_types == {} # created_at not supplied in mock
+    assert event_details.data_types == {}
     assert event_details.dedup_keys == MOCK_EVENT['dedup_keys']
     assert event_details.event_meta == {}
     assert event_details.playbook == MOCK_EVENT['playbook']
@@ -231,9 +230,11 @@ def test_EventCreator_create():
     created_event = event.create()
 
     #check dedup table
+    dedup_table = boto3.resource('dynamodb').Table(os.environ['SOCLESS_DEDUP_TABLE'])
+    dedup_mapping = dedup_table.get_item(Key={'dedup_hash': DEDUP_HASH_FOR_MOCK_EVENT}
+    )['Item']
 
-    #check events table
-
+    assert dedup_mapping['current_investigation_id'] == created_event['investigation_id']
     assert event.details == created_event['details']
     assert event.created_at == created_event['created_at']
 
@@ -264,8 +265,6 @@ def test_EventCreator_create_duplicate():
     event = EventCreator(edited_event)
     created_event = event.create()
     assert created_event['is_duplicate'] == True
-
-
 
 def test_EventBatch():
     batched_event = EventBatch(MOCK_EVENT_BATCH, MockLambdaContext())
@@ -345,7 +344,6 @@ def test_EventBatch_execute_playbook_failure():
     result = batched_event.execute_playbook(convert_empty_strings_to_none(MOCK_EVENT))
 
     assert result['status'] == False
-
 
 @mock_stepfunctions
 @mock_sts

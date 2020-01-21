@@ -37,7 +37,7 @@ class ParameterResolver:
         Does not support the full JsonPath specification
 
         Args:
-            reference: The JsonPath reference e.g. $.artifacts.investigation_id
+            path: The JsonPath reference e.g. $.artifacts.investigation_id
         Returns:
             The referenced element. May be any Python built-in type
         """
