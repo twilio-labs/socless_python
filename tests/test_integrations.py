@@ -107,22 +107,6 @@ MOCK_DB_CONTEXT = {
   }
 }
 
-def test_state_handler_with_task_token():
-    client = boto3.client('dynamodb')
-    #  Setup DB context for the state handler
-    client.put_item(
-        TableName=os.environ['SOCLESS_RESULTS_TABLE'],
-        Item=dict_to_item(MOCK_DB_CONTEXT,convert_root=False)
-    )
-
-    state_handler = StateHandler(TEST_SFN_CONTEXT, MockLambdaContext(), mock_integration_handler)
-    assert state_handler.context['execution_id'] == TEST_SFN_CONTEXT['sfn_context']['artifacts']['execution_id']
-    assert state_handler.context['task_token'] == TEST_SFN_CONTEXT['task_token']
-    assert state_handler.context['state_name'] == TEST_SFN_CONTEXT['sfn_context']['State_Config']['Name']
-    assert state_handler.context['artifacts'] == MOCK_DB_CONTEXT['results']['artifacts']
-    assert state_handler.context['errors'] == MOCK_DB_CONTEXT['results']['errors']
-    assert state_handler.context['results'] == MOCK_DB_CONTEXT['results']['results']
-
 @pytest.fixture()
 def root_obj():
     return {
@@ -147,6 +131,29 @@ def TestParamResolver(root_obj):
 def TestExecutionContext():
     """Instantiates ExecutionContext class for use in tests"""
     return ExecutionContext("test_execution_context_id")
+
+
+def test_state_handler_with_task_token():
+    client = boto3.client('dynamodb')
+    #  Setup DB context for the state handler
+    client.put_item(
+        TableName=os.environ['SOCLESS_RESULTS_TABLE'],
+        Item=dict_to_item(MOCK_DB_CONTEXT,convert_root=False)
+    )
+
+    state_handler = StateHandler(TEST_SFN_CONTEXT, MockLambdaContext(), mock_integration_handler)
+    assert state_handler.context['execution_id'] == TEST_SFN_CONTEXT['sfn_context']['artifacts']['execution_id']
+    assert state_handler.context['task_token'] == TEST_SFN_CONTEXT['task_token']
+    assert state_handler.context['state_name'] == TEST_SFN_CONTEXT['sfn_context']['State_Config']['Name']
+    assert state_handler.context['artifacts'] == MOCK_DB_CONTEXT['results']['artifacts']
+    assert state_handler.context['errors'] == MOCK_DB_CONTEXT['results']['errors']
+    assert state_handler.context['results'] == MOCK_DB_CONTEXT['results']['results']
+
+def test_ExecutionContext_bad_execution_id():
+    execution = ExecutionContext('id_does_not_exist')
+    
+    with pytest.raises(Exception):
+        execution.fetch_context()
 
 def test_resolve_jsonpath(TestParamResolver, root_obj):
     assert TestParamResolver.resolve_jsonpath("$.artifacts.event.details.firstname") == root_obj['artifacts']['event']['details']['firstname']

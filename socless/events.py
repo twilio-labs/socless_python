@@ -130,8 +130,6 @@ class EventCreator():
                     'current_investigation_id': self.investigation_id
                 }
                 dedup_table.put_item(Item=new_dedup_mapping)
-            else:
-                pass
         else:
             pass
 
