@@ -67,7 +67,7 @@ DEDUP_HASH_FOR_MOCK_EVENT = "0caa90ad7b7fc101b90a8ce0f9638eb9"
 MOCK_INVESTIGATION_ID = "mock_investigation_id"
 
 
-def test_EventCreator():
+def test_EventCreator_init_happy():
     event_details = EventCreator(MOCK_EVENT)
 
     assert event_details.event_type == MOCK_EVENT['event_type']
@@ -77,65 +77,75 @@ def test_EventCreator():
     assert event_details.event_meta == {}
     assert event_details.playbook == MOCK_EVENT['playbook']
 
-def test_EventCreator_invalid_date():
+def test_EventCreator_init_fails_on_invalid_date_format():
     edited_event_data = deepcopy(MOCK_EVENT)
     edited_event_data['created_at'] = 'bad_date'
 
     with pytest.raises(Exception):
         event_details = EventCreator(edited_event_data)
 
-def test_EventCreator_invalid_event_type():
+def test_EventCreator_init_fails_on_invalid_event_type():
     edited_event_data = deepcopy(MOCK_EVENT)
     edited_event_data['event_type'] = ''
 
     with pytest.raises(Exception):
         event_details = EventCreator(edited_event_data)
 
-def test_EventCreator_invalid_details():
+def test_EventCreator_init_fails_on_invalid_details():
     edited_event_data = deepcopy(MOCK_EVENT)
     edited_event_data['details'] = ''
 
     with pytest.raises(Exception):
         event_details = EventCreator(edited_event_data)
 
-def test_EventCreator_invalid_data_types():
+def test_EventCreator_init_fails_when_invalid_data_types():
     edited_event_data = deepcopy(MOCK_EVENT)
     edited_event_data['data_types'] = ''
 
     with pytest.raises(Exception):
         event_details = EventCreator(edited_event_data)
 
-def test_EventCreator_invalid_event_meta():
+def test_EventCreator_init_fails_when_details_is_not_dict():
+    edited_event_data = deepcopy(MOCK_EVENT)
+    edited_event_data['details'] = []
+
+    with pytest.raises(Exception):
+        event_details = EventCreator(edited_event_data)
+
+#! this should fail, need to make changes to events.py so this fails
+# def test_EventCreator_fails_when_details_is_empty_dict():
+#     edited_event_data = deepcopy(MOCK_EVENT)
+#     edited_event_data['details'] = {}
+
+#     with pytest.raises(Exception):
+#         event_details = EventCreator(edited_event_data)
+
+def test_EventCreator_init_fails_on_invalid_event_meta():
     edited_event_data = deepcopy(MOCK_EVENT)
     edited_event_data['event_meta'] = ''
 
     with pytest.raises(Exception):
         event_details = EventCreator(edited_event_data)
 
-def test_EventCreator_invalid_playbook():
+def test_EventCreator_init_fails_on_invalid_playbook():
     edited_event_data = deepcopy(MOCK_EVENT)
     edited_event_data['playbook'] = 1234
 
     with pytest.raises(Exception):
         event_details = EventCreator(edited_event_data)
 
-def test_EventCreator_invalid_dedup_keys():
+def test_EventCreator_init_fails_when_dedup_keys_not_a_list():
     edited_event_data = deepcopy(MOCK_EVENT)
     edited_event_data['dedup_keys'] = "key_to_dedupe"
 
     with pytest.raises(Exception):
         event_details = EventCreator(edited_event_data)
 
-def test_EventCreator_dedup_hash():
+def test_EventCreator_dedup_hash_is_correct():
     event = EventCreator(MOCK_EVENT)
     assert event.dedup_hash == DEDUP_HASH_FOR_MOCK_EVENT
 
-    edited_mock_event = deepcopy(MOCK_EVENT)
-    edited_mock_event['dedup_keys'] = ['username']
-    event = EventCreator(edited_mock_event)
-    assert event.dedup_hash == "0caa90ad7b7fc101b90a8ce0f9638eb9"
-
-def test_EventCreator_dedup_hash_invalid_key():
+def test_EventCreator_dedup_hash_fails_when_dedup_keys_do_not_match_any_details():
     edited_mock_event = deepcopy(MOCK_EVENT)
     edited_mock_event['dedup_keys'] = ['invalid_key']
 
@@ -301,7 +311,7 @@ def test_EventBatch_invalid_playbook_type():
     with pytest.raises(Exception):
         batched_event = EventBatch(bad_mock_event_batch, MockLambdaContext())
 
-def test_EventBatch_invalid_dedup_keys_type():
+def test_EventBatch_fails_on_invalid_type_for_dedup_keys():
     bad_mock_event_batch = deepcopy(MOCK_EVENT_BATCH)
     bad_mock_event_batch['dedup_keys'] = 'bad_arg_type'
 
