@@ -63,39 +63,39 @@ TEST_SFN_CONTEXT = {
 }
 
 MOCK_MESSAGE_RESPONSE_ENTRY = dict_to_item({
-  "await_token": TEST_SFN_CONTEXT['task_token'],
-  "execution_id": TEST_SFN_CONTEXT['sfn_context']['execution_id'],
-  "fulfilled": False,
-  "investigation_id": TEST_SFN_CONTEXT['sfn_context']['artifacts']['event']['investigation_id'],
-  "message": TEST_MESSAGE,
-  "receiver": TEST_SFN_CONTEXT['sfn_context']['State_Config']['Name'],
+    "await_token": TEST_SFN_CONTEXT['task_token'],
+    "execution_id": TEST_SFN_CONTEXT['sfn_context']['execution_id'],
+    "fulfilled": False,
+    "investigation_id": TEST_SFN_CONTEXT['sfn_context']['artifacts']['event']['investigation_id'],
+    "message": TEST_MESSAGE,
+    "receiver": TEST_SFN_CONTEXT['sfn_context']['State_Config']['Name'],
 },convert_root=False)
 
 
 MOCK_DB_CONTEXT = {
-  "datetime": "some_point_in_time_and_space",
-  "execution_id": "mock_execution_id",
-  "investigation_id": "mock_investigation_id",
-  "results": {
-    'artifacts': {
-        'event': {
-            'id': MOCK_EVENT_ID,
-            'created_at': 'some_point_in_time_and_space',
-            'data_types': {},
-            'details': {
-                "some": "randon text"
+    "datetime": "some_point_in_time_and_space",
+    "execution_id": "mock_execution_id",
+    "investigation_id": "mock_investigation_id",
+    "results": {
+        'artifacts': {
+            'event': {
+                'id': MOCK_EVENT_ID,
+                'created_at': 'some_point_in_time_and_space',
+                'data_types': {},
+                'details': {
+                    "some": "randon text"
+                },
+                'event_type': 'Test Human Interaction Workflow',
+                'event_meta': {},
+                'investigation_id': MOCK_INVESTIGATION_ID,
+                'status_': 'open',
+                'is_duplicate': False
             },
-            'event_type': 'Test Human Interaction Workflow',
-            'event_meta': {},
-            'investigation_id': MOCK_INVESTIGATION_ID,
-            'status_': 'open',
-            'is_duplicate': False
+            'execution_id': MOCK_EXECUTION_ID
         },
-        'execution_id': MOCK_EXECUTION_ID
-    },
-    "errors": {},
-    "results": {}
-  }
+        "errors": {},
+        "results": {}
+    }
 }
 
 @pytest.fixture

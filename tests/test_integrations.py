@@ -107,6 +107,32 @@ MOCK_DB_CONTEXT = {
   }
 }
 
+@pytest.fixture()
+def root_obj():
+    return {
+        "artifacts": {
+            "event": {
+                "details": {
+                    "firstname": "Sterling",
+                    "middlename": "Malory",
+                    "lastname": "Archer",
+                    "vault_test" : "vault:socless_vault_tests.txt"
+                }
+            }
+        }
+    }
+
+@pytest.fixture()
+def TestParamResolver(root_obj):
+    """Instantiates ParameterResolver class from root_obj for use in tests"""
+    return ParameterResolver(root_obj)
+
+@pytest.fixture()
+def TestExecutionContext():
+    """Instantiates ExecutionContext class for use in tests"""
+    return ExecutionContext("test_execution_context_id")
+
+
 def test_state_handler_with_task_token():
     client = boto3.client('dynamodb')
     #  Setup DB context for the state handler
@@ -123,35 +149,20 @@ def test_state_handler_with_task_token():
     assert state_handler.context['errors'] == MOCK_DB_CONTEXT['results']['errors']
     assert state_handler.context['results'] == MOCK_DB_CONTEXT['results']['results']
 
-@pytest.fixture()
-def root_obj():
-    return {
-        "artifacts": {
-            "event": {
-                "details": {
-                    "firstname": "Sterling",
-                    "middlename": "Malory",
-                    "lastname": "Archer"
-                }
-            }
-        }
-    }
-
-@pytest.fixture()
-def TestParamResolver(root_obj):
-    """Instantiates ParameterResolver class from root_obj for use in tests"""
-    return ParameterResolver(root_obj)
-
-@pytest.fixture()
-def TestExecutionContext():
-    """Instantiates ExecutionContext class for use in tests"""
-    return ExecutionContext("test_execution_context_id")
+def test_ExecutionContext_bad_execution_id():
+    execution = ExecutionContext('id_does_not_exist')
+    
+    with pytest.raises(Exception):
+        execution.fetch_context()
 
 def test_resolve_jsonpath(TestParamResolver, root_obj):
     assert TestParamResolver.resolve_jsonpath("$.artifacts.event.details.firstname") == root_obj['artifacts']['event']['details']['firstname']
 
-def test_resolve_vault_path(TestParamResolver):
+def test_resolve_jsonpath_vault_token(TestParamResolver, root_obj):
+    assert TestParamResolver.resolve_jsonpath("$.artifacts.event.details.vault_test") == "this came from the vault"
 
+
+def test_resolve_vault_path(TestParamResolver):
     assert TestParamResolver.resolve_vault_path("vault:socless_vault_tests.txt") == "this came from the vault"
 
 def test_resolve_reference(TestParamResolver):
@@ -163,6 +174,8 @@ def test_resolve_reference(TestParamResolver):
     assert TestParamResolver.resolve_reference("vault:socless_vault_tests.txt") == "this came from the vault"
     # Test with dictionary reference
     assert TestParamResolver.resolve_reference({"firstname": "$.artifacts.event.details.firstname"}) == {"firstname": "Sterling"}
+    # Test with not dict or string reference
+    assert TestParamResolver.resolve_reference(['test']) == ["test"]
 
 def test_resolve_parameters(TestParamResolver):
     # Test with static string, vault reference, JsonPath reference, and conversion

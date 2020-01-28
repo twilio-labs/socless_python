@@ -16,3 +16,5 @@ venv*
 .cache
 .DS_Store
 .tox
+.coverage
+htmlcov
