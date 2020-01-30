@@ -149,10 +149,11 @@ class ExecutionContext:
         item_resp = results_table.get_item(Key={
             'execution_id': self.execution_id
         },ConsistentRead=True)
-        try:
-            item = item_resp['Item']
-        except KeyError as e:
+
+        item = item_resp.get("Item", {})
+        if not item:
             raise Exception(f"Error: Unable to get execution_id {self.execution_id} from {RESULTS_TABLE}.")
+        
         return item
 
     def save_state_results(self,state_name,result, errors={}):
