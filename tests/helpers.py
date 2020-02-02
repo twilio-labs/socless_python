@@ -15,6 +15,8 @@
 Helpers
 """
 import os
+from socless.utils import gen_id, gen_datetimenow
+import boto3
 
 account_id = os.environ['MOTO_ACCOUNT_ID']
 
@@ -25,14 +27,23 @@ class MockLambdaContext:
     invoked_function_arn = f"arn:aws:lambda:us-west-2:{account_id}:function:_socless_playground"
 
 
-def mock_integration_handler(firstname='', middlename='', lastname=''):
+def mock_integration_handler(context={}, firstname='', middlename='', lastname=''):
     """Mock integration handler object for testing
     """
-    return {
+    result = {
         "firstname": firstname,
         "middlename": middlename,
         "lastname": lastname
     }
+    if context:
+        context.update(result)
+        return context
+    return result
+
+def mock_integration_handler_return_string(firstname='', middlename='', lastname=''):
+    """Mock integration handler object for testing
+    """
+    return 'No dict'
 
 def dict_to_item(raw,convert_root=True):
     """Convert a dictionary object to a DynamoDB Item format for put_object
@@ -62,3 +73,22 @@ def dict_to_item(raw,convert_root=True):
         item =  {'N': str(raw)}
 
     return item if convert_root else item['M']
+
+def pre_save_dummy_execution_resutls():
+    execution_id = gen_id()
+    investigation_id = gen_id()
+    date_time = gen_datetimenow()
+    results_table_name = os.environ['SOCLESS_RESULTS_TABLE']
+    client = boto3.client('dynamodb')
+    client.put_item(
+        TableName=results_table_name,
+        Item={
+            "datetime": { "S": date_time },
+            "execution_id": { "S": execution_id },
+            "investigation_id": { "S":investigation_id },
+            "results": dict_to_item({"artifacts": {"execution_id": execution_id}, "errors": {},"results":{}})
+        }
+    )
+    return {"execution_id": execution_id,
+            "investigation_id": investigation_id,
+            "datetime": date_time}
