@@ -74,7 +74,7 @@ def dict_to_item(raw,convert_root=True):
 
     return item if convert_root else item['M']
 
-def pre_save_dummy_execution_resutls():
+def pre_save_dummy_execution_results():
     execution_id = gen_id()
     investigation_id = gen_id()
     date_time = gen_datetimenow()

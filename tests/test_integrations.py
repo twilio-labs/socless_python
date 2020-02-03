@@ -14,7 +14,7 @@
 from tests.conftest import * #imports testing boilerplate
 from socless.integrations import *
 from socless.utils import gen_id, gen_datetimenow
-from .helpers import mock_integration_handler, mock_integration_handler_return_string, MockLambdaContext, dict_to_item, pre_save_dummy_execution_resutls
+from .helpers import mock_integration_handler, mock_integration_handler_return_string, MockLambdaContext, dict_to_item, pre_save_dummy_execution_results
 
 #intialize testing data
 
@@ -224,7 +224,7 @@ def test_ExecutionContext_fetch_context(TestExecutionContext):
 
 def test_ExecutionContext_save_state_results():
 
-    item_metadata = pre_save_dummy_execution_resutls()
+    item_metadata = pre_save_dummy_execution_results()
     state_name = "test_ExecutionContext_save_state_results"
     result = {"exist": True}
     errors = {"error": "This is an error"}
@@ -266,7 +266,7 @@ def test_StateHandler_init_with_testing_event():
 
 def test_StateHandler_init_with_live_event():
     #insert test item into mocked table
-    item_metadata = pre_save_dummy_execution_resutls()
+    item_metadata = pre_save_dummy_execution_results()
     live_event = {
         "execution_id": item_metadata['execution_id'],
         "artifacts": {
@@ -321,7 +321,7 @@ def test_StateHandler_init_with_task_token_event():
     assert state_handler.context['results'] == MOCK_DB_CONTEXT['results']['results']
 
 def test_StateHandler_init_with_live_event_without_State_Config():
-    item_metadata = pre_save_dummy_execution_resutls()
+    item_metadata = pre_save_dummy_execution_results()
     live_event = {
         "execution_id": item_metadata['execution_id'],
         "artifacts": {
@@ -333,7 +333,7 @@ def test_StateHandler_init_with_live_event_without_State_Config():
         state_handler = StateHandler(live_event, MockLambdaContext(), mock_integration_handler)
 
 def test_StateHandler_init_with_live_event_without_Name():
-    item_metadata = pre_save_dummy_execution_resutls()
+    item_metadata = pre_save_dummy_execution_results()
     live_event = {
         "execution_id": item_metadata['execution_id'],
         "artifacts": {
@@ -351,7 +351,7 @@ def test_StateHandler_init_with_live_event_without_Name():
         state_handler = StateHandler(live_event, MockLambdaContext(), mock_integration_handler)
 
 def test_StateHandler_init_with_live_event_without_Parameters():
-    item_metadata = pre_save_dummy_execution_resutls()
+    item_metadata = pre_save_dummy_execution_results()
     live_event = {
         "execution_id": item_metadata['execution_id'],
         "artifacts": {
@@ -367,7 +367,7 @@ def test_StateHandler_init_with_live_event_without_Parameters():
 
 def test_StateHandler_init_with_live_event_with_errors():
     #insert test item into mocked table
-    item_metadata = pre_save_dummy_execution_resutls()
+    item_metadata = pre_save_dummy_execution_results()
     live_event = {
         "execution_id": item_metadata['execution_id'],
         "artifacts": {
@@ -423,7 +423,7 @@ def test_StateHandler_execute_with_testing_event():
 
 def test_StateHandler_execute_with_live_event():
     #insert test item into mocked table
-    item_metadata = pre_save_dummy_execution_resutls()
+    item_metadata = pre_save_dummy_execution_results()
     event = {
         "execution_id": item_metadata['execution_id'],
         "investigation_id": item_metadata['investigation_id'],
@@ -439,7 +439,7 @@ def test_StateHandler_execute_with_live_event():
 
 def test_StateHandler_execute_with_live_event_without_execution_id():
     #insert test item into mocked table
-    item_metadata = pre_save_dummy_execution_resutls()
+    item_metadata = pre_save_dummy_execution_results()
     live_event = {
         "investigation_id": item_metadata['investigation_id'],
         "results": {
@@ -453,7 +453,7 @@ def test_StateHandler_execute_with_live_event_without_execution_id():
         state_handler = StateHandler(live_event, MockLambdaContext(), mock_integration_handler)
 
 def test_StateHandler_execute_with_live_event_include_context():
-    item_metadata = pre_save_dummy_execution_resutls()
+    item_metadata = pre_save_dummy_execution_results()
     event = {
         "execution_id": item_metadata['execution_id'],
         "investigation_id": item_metadata['investigation_id'],
@@ -479,7 +479,7 @@ def test_StateHandler_execute_with_live_event_include_context():
     assert state_handler.execute() == expected_result
 
 def test_StateHandler_execute_with_live_event_return_non_dict():
-    item_metadata = pre_save_dummy_execution_resutls()
+    item_metadata = pre_save_dummy_execution_results()
     event = {
         "execution_id": item_metadata['execution_id'],
         "investigation_id": item_metadata['investigation_id'],
