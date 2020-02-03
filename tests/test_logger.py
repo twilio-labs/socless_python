@@ -27,11 +27,11 @@ def test_socless_log_then_raise():
     with pytest.raises(Exception):
         socless_log_then_raise('testing error')
 
-def test_socless_log_fails_on_empty_message():
+def test_socless_log_then_raise_fails_on_empty_message():
     with pytest.raises(ValueError):
         socless_log_then_raise('')
 
-def test_socless_log_fails_on_extra_not_being_dict():
+def test_socless_log_then_raise_fails_on_extra_not_being_dict():
     with pytest.raises(ValueError):
         socless_log_then_raise('test_message', [])
 
