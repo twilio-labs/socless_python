@@ -14,133 +14,12 @@
 from tests.conftest import * #imports testing boilerplate
 from socless.integrations import *
 from socless.utils import gen_id, gen_datetimenow
-from .helpers import mock_integration_handler, mock_integration_handler_return_string, MockLambdaContext, dict_to_item, pre_save_dummy_execution_results
-
-#intialize testing data
-
-MOCK_EXECUTION_ID = 'mock_execution_id'
-MOCK_EVENT_ID = 'mock_event_id'
-MOCK_INVESTIGATION_ID = 'mock_investigation_id'
-MOCK_TASK_TOKEN = 'mock_task_token'
-MOCK_STATE_NAME = "HelloWorld"
-
-
-TEST_DATA = {
-    "TEST_EXECUTION_DATA": {
-        "datetime": "test_date_time", 
-        "execution_id": "test_execution_context_id", 
-        "investigation_id": "test_investigation_id", 
-        "results": {
-            "artifacts": {
-                "execution_id": "test_execution_id"
-                }, 
-                "errors": {},
-                "results":{}
-            }
-         },
-    "TEST_EXECUTION_DATA_LIVE": {
-        "datetime": "test_date_time", 
-        "execution_id": "test_execution_context_id", 
-        "investigation_id":"test_investigation_id", 
-        "results": {
-            "artifacts": {
-                "execution_id": "test_execution_id"
-                }, 
-            "errors": {},
-            "results":{},
-            'execution_id':'test_execution_context_id'
-            }
-        },
-    "TEST_STATE_HANDLER": {
-        "execution_id": "test_state_handler",
-        "investigation_id": "test_state_handler",
-        "results": {
-            "execution_id": "test_state_handler",
-            "artifacts": {},
-            "results":{}
-            }
-        },
-    "EVENT_TESTING_DATA" : {
-        "_testing": True,
-        "State_Config": {
-            "Name": "test",
-            "Parameters": {
-                "firstname": "Sterling",
-                "middlename": "Malory",
-                "lastname": "Archer"
-            }
-        }
-    },
-    "EVENT_LIVE_DATA" : {
-        "execution_id": "test_execution_context_id",
-        "artifacts": {
-            "execution_id": "test_execution_context_id",
-        },
-        "State_Config": {
-            "Name": "test",
-            "Parameters": {
-                "firstname": "Lana",
-                "lastname": "Kane"
-            }
-        }
-    }
-}
-
-TEST_SFN_CONTEXT = {
-	'task_token': MOCK_TASK_TOKEN,
-	'sfn_context': {
-		'execution_id': MOCK_EXECUTION_ID,
-		'artifacts': {
-			'event': {
-				'id': MOCK_EVENT_ID,
-				'created_at': 'some_point_in_time_and_space',
-				'data_types': {},
-				'details': {
-                    "some": "randon text"
-				},
-				'event_type': 'Test Human Interaction Workflow',
-				'event_meta': {},
-				'investigation_id': MOCK_INVESTIGATION_ID,
-				'status_': 'open',
-				'is_duplicate': False
-			},
-			'execution_id': MOCK_EXECUTION_ID
-		},
-		'State_Config': {
-			'Name': MOCK_STATE_NAME,
-			'Parameters': {}
-		}
-	}
-}
-
-MOCK_DB_CONTEXT = {
-  "datetime": "some_point_in_time_and_space",
-  "execution_id": "mock_execution_id",
-  "investigation_id": "mock_investigation_id",
-  "results": {
-    'artifacts': {
-        'event': {
-            'id': MOCK_EVENT_ID,
-            'created_at': 'some_point_in_time_and_space',
-            'data_types': {},
-            'details': {
-                "some": "randon text"
-            },
-            'event_type': 'Test Human Interaction Workflow',
-            'event_meta': {},
-            'investigation_id': MOCK_INVESTIGATION_ID,
-            'status_': 'open',
-            'is_duplicate': False
-        },
-        'execution_id': MOCK_EXECUTION_ID
-    },
-    "errors": {},
-    "results": {}
-  }
-}
+from .helpers import mock_integration_handler, mock_integration_handler_return_string, MockLambdaContext, dict_to_item, mock_sfn_db_context, mock_execution_results_table_entry
 
 @pytest.fixture()
 def root_obj():
+    # setup root_obj for use in tesing TestParamResolver
+
     return {
         "artifacts": {
             "event": {
@@ -156,21 +35,19 @@ def root_obj():
 
 @pytest.fixture()
 def TestParamResolver(root_obj):
-    """Instantiates ParameterResolver class from root_obj for use in tests"""
+    #Instantiates ParameterResolver class from root_obj for use in tests
     return ParameterResolver(root_obj)
 
-@pytest.fixture()
-def TestExecutionContext():
-    """Instantiates ExecutionContext class for use in tests"""
-    return ExecutionContext("test_execution_context_id")
-
 def test_ParameterResolver_resolve_jsonpath(TestParamResolver, root_obj):
+    # assert resolve_json_path works as expected by comparing it with root_obj
     assert TestParamResolver.resolve_jsonpath("$.artifacts.event.details.firstname") == root_obj['artifacts']['event']['details']['firstname']
 
 def test_ParameterResolver_resolve_jsonpath_vault_token(TestParamResolver, root_obj):
+    # assert resolve_json_path works as expected with vault token by comparing it with root_obj
     assert TestParamResolver.resolve_jsonpath("$.artifacts.event.details.vault_test") == "this came from the vault"
 
 def test_ParameterResolver_resolve_vault_path(TestParamResolver):
+    # test resolve_vault path
     assert TestParamResolver.resolve_vault_path("vault:socless_vault_tests.txt") == "this came from the vault"
 
 def test_ParameterResolver_resolve_reference(TestParamResolver):
@@ -200,31 +77,53 @@ def test_ParameterResolver_apply_conversion_from(TestParamResolver):
     # Test convert from json
     assert TestParamResolver.apply_conversion_from('{"text":"hello"}',"json") == {"text":"hello"}
 
-def test_ExecutionContext_bad_execution_id():
-    execution = ExecutionContext('id_does_not_exist')
-    
-    with pytest.raises(Exception):
+def test_ExecutionContext_init():
+    # test ExecutionContext init to assert the execution_id is the same one as expected
+    execution_id = gen_id()
+    execution_context = ExecutionContext(execution_id)
+    assert execution_context.execution_id == execution_id
+
+def test_ExecutionContext_fetch_context():
+    # test ExecutionContext fetch_context to assert fetched context is as expected
+    item_metadata = mock_execution_results_table_entry()
+    expected_result = {
+            "datetime": item_metadata['datetime'],
+            "execution_id": item_metadata['execution_id'],
+            "investigation_id": item_metadata['investigation_id'],
+            "results": {
+                'artifacts': {
+                    'event': {
+                        'id': item_metadata['id'],
+                        'created_at': item_metadata['datetime'],
+                        'data_types': {},
+                        'details': {
+                            "some": "randon text"
+                        },
+                        'event_type': 'Test integrations',
+                        'event_meta': {},
+                        'investigation_id': item_metadata['investigation_id'],
+                        'status_': 'open',
+                        'is_duplicate': False
+                    },
+                    'execution_id': item_metadata['execution_id']
+                },
+                "errors": {},
+                "results": {}
+            }
+        }
+    execution_context = ExecutionContext(item_metadata['execution_id'])
+    assert execution_context.fetch_context() == expected_result
+
+def test_ExecutionContext_fetch_context_fails_on_execution_id_not_existing():
+    # test ExecutionContext fetch_context to fail when execution_id doesn't exist in dynamodb. Expecing it to raise an exception
+    execution = ExecutionContext(gen_id())
+    with pytest.raises(Exception, match="^Error: Unable to get execution_id"):
         execution.fetch_context()
 
-def test_ExecutionContext_fetch_context(TestExecutionContext):
-    #setup mock table and insert item for testing
-    results_table_name = os.environ['SOCLESS_RESULTS_TABLE']
-    client = boto3.client('dynamodb')
-    client.put_item(
-        TableName=results_table_name,
-        Item={
-            "datetime": { "S":"test_date_time" },
-            "execution_id": { "S":"test_execution_context_id" },
-            "investigation_id": { "S":"test_investigation_id" },
-            "results": dict_to_item({"artifacts": {"execution_id": "test_execution_id"}, "errors": {},"results":{}})
-        }
-    )
-
-    assert TestExecutionContext.fetch_context() == TEST_DATA['TEST_EXECUTION_DATA']
-
 def test_ExecutionContext_save_state_results():
+    # test ExecutionContext save state results to assert saved item is as expected
 
-    item_metadata = pre_save_dummy_execution_results()
+    item_metadata = mock_execution_results_table_entry()
     state_name = "test_ExecutionContext_save_state_results"
     result = {"exist": True}
     errors = {"error": "This is an error"}
@@ -241,6 +140,7 @@ def test_ExecutionContext_save_state_results():
     assert saved_result['Item']['datetime'] == item_metadata['datetime']
     
 def test_StateHandler_init_with_testing_event():
+    # test StateHandler init with testing event to assert variables are as expected
     
     testing_event = {
         "_testing": True,
@@ -265,112 +165,12 @@ def test_StateHandler_init_with_testing_event():
     assert state_handler.integration_handler == mock_integration_handler
 
 def test_StateHandler_init_with_live_event():
-    #insert test item into mocked table
-    item_metadata = pre_save_dummy_execution_results()
+    # test StateHandler init with live event to assert variables are as expected
+
+    item_metadata = mock_execution_results_table_entry()
     live_event = {
         "execution_id": item_metadata['execution_id'],
-        "artifacts": {
-            "execution_id": item_metadata['execution_id'],
-        },
-        "State_Config": {
-            "Name": "test",
-            "Parameters": {
-                "firstname": "Lana",
-                "lastname": "Kane"
-            }
-        }
-    }
-    live_execution_event = {
-        "datetime": item_metadata['datetime'], 
-        "execution_id": item_metadata['execution_id'], 
-        "investigation_id": item_metadata['investigation_id'], 
-        "results": {
-            "artifacts": {
-                "execution_id": item_metadata['execution_id']
-                }, 
-            "errors": {},
-            "results":{},
-            'execution_id': item_metadata['execution_id']
-            }
-        }
-
-    state_handler = StateHandler(live_event, MockLambdaContext(), mock_integration_handler)
-    assert state_handler.event == live_event
-    assert state_handler.testing == False
-    assert state_handler.state_config == live_event['State_Config']
-    assert state_handler.state_name == live_event['State_Config']['Name']
-    assert state_handler.state_parameters == live_event['State_Config']['Parameters']
-    assert state_handler.execution_id == live_event.get('execution_id','')
-    assert state_handler.context == live_execution_event['results']
-    assert state_handler.integration_handler == mock_integration_handler
-
-def test_StateHandler_init_with_task_token_event():
-    client = boto3.client('dynamodb')
-    #  Setup DB context for the state handler
-    client.put_item(
-        TableName=os.environ['SOCLESS_RESULTS_TABLE'],
-        Item=dict_to_item(MOCK_DB_CONTEXT,convert_root=False)
-    )
-
-    state_handler = StateHandler(TEST_SFN_CONTEXT, MockLambdaContext(), mock_integration_handler)
-    assert state_handler.context['execution_id'] == TEST_SFN_CONTEXT['sfn_context']['artifacts']['execution_id']
-    assert state_handler.context['task_token'] == TEST_SFN_CONTEXT['task_token']
-    assert state_handler.context['state_name'] == TEST_SFN_CONTEXT['sfn_context']['State_Config']['Name']
-    assert state_handler.context['artifacts'] == MOCK_DB_CONTEXT['results']['artifacts']
-    assert state_handler.context['errors'] == MOCK_DB_CONTEXT['results']['errors']
-    assert state_handler.context['results'] == MOCK_DB_CONTEXT['results']['results']
-
-def test_StateHandler_init_with_live_event_without_State_Config():
-    item_metadata = pre_save_dummy_execution_results()
-    live_event = {
-        "execution_id": item_metadata['execution_id'],
-        "artifacts": {
-            "execution_id": item_metadata['execution_id'],
-        }
-    }
-
-    with pytest.raises(Exception):
-        state_handler = StateHandler(live_event, MockLambdaContext(), mock_integration_handler)
-
-def test_StateHandler_init_with_live_event_without_Name():
-    item_metadata = pre_save_dummy_execution_results()
-    live_event = {
-        "execution_id": item_metadata['execution_id'],
-        "artifacts": {
-            "execution_id": item_metadata['execution_id'],
-        },
-        "State_Config": {
-            "Parameters": {
-                "firstname": "Lana",
-                "lastname": "Kane"
-            }
-        }
-    }
-
-    with pytest.raises(Exception):
-        state_handler = StateHandler(live_event, MockLambdaContext(), mock_integration_handler)
-
-def test_StateHandler_init_with_live_event_without_Parameters():
-    item_metadata = pre_save_dummy_execution_results()
-    live_event = {
-        "execution_id": item_metadata['execution_id'],
-        "artifacts": {
-            "execution_id": item_metadata['execution_id'],
-        },
-        "State_Config": {
-            "Name": "test"
-        }
-    }
-
-    with pytest.raises(Exception):
-        state_handler = StateHandler(live_event, MockLambdaContext(), mock_integration_handler)
-
-def test_StateHandler_init_with_live_event_with_errors():
-    #insert test item into mocked table
-    item_metadata = pre_save_dummy_execution_results()
-    live_event = {
-        "execution_id": item_metadata['execution_id'],
-        "artifacts": {
+        "artifacts": {  
             "execution_id": item_metadata['execution_id'],
         },
         "State_Config": {
@@ -382,17 +182,30 @@ def test_StateHandler_init_with_live_event_with_errors():
         },
         "errors": {"error": "this is an error"}
     }
-    live_execution_event = {
+    exepected_event = {
         "datetime": item_metadata['datetime'], 
         "execution_id": item_metadata['execution_id'], 
         "investigation_id": item_metadata['investigation_id'], 
         "results": {
-            "artifacts": {
-                "execution_id": item_metadata['execution_id']
-                }, 
-            "errors": {"error": "this is an error"},
-            "results":{},
-            'execution_id': item_metadata['execution_id']
+                'artifacts': {
+                    'event': {
+                        'id': item_metadata['id'],
+                        'created_at': item_metadata['datetime'],
+                        'data_types': {},
+                        'details': {
+                            "some": "randon text"
+                        },
+                        'event_type': 'Test integrations',
+                        'event_meta': {},
+                        'investigation_id': item_metadata['investigation_id'],
+                        'status_': 'open',
+                        'is_duplicate': False
+                    },
+                    'execution_id': item_metadata['execution_id']
+                },
+                'execution_id': item_metadata['execution_id'],
+                "errors": {"error": "this is an error"},
+                "results": {}
             }
         }
 
@@ -403,10 +216,132 @@ def test_StateHandler_init_with_live_event_with_errors():
     assert state_handler.state_name == live_event['State_Config']['Name']
     assert state_handler.state_parameters == live_event['State_Config']['Parameters']
     assert state_handler.execution_id == live_event.get('execution_id','')
-    assert state_handler.context == live_execution_event['results']
+    assert state_handler.context == exepected_event['results']
     assert state_handler.integration_handler == mock_integration_handler
 
+def test_StateHandler_init_with_task_token_event():
+    # test StateHandler init with taksk token event to assert variables are as expected
+
+    sfn_item_metadata = mock_sfn_db_context()
+    state_handler_db_context = sfn_item_metadata['db_context']
+    sfn_context = sfn_item_metadata['sfn_context']
+    state_handler = StateHandler(sfn_context, MockLambdaContext(), mock_integration_handler)
+    assert state_handler.context['execution_id'] == sfn_context['sfn_context']['artifacts']['execution_id']
+    assert state_handler.context['task_token'] == sfn_context['task_token']
+    assert state_handler.context['state_name'] == sfn_context['sfn_context']['State_Config']['Name']
+    assert state_handler.context['artifacts'] == state_handler_db_context['results']['artifacts']
+    assert state_handler.context['errors'] == state_handler_db_context['results']['errors']
+    assert state_handler.context['results'] == state_handler_db_context['results']['results']
+
+def test_StateHandler_init_with_live_event_with_errors():
+    # test StateHandler init with live event that contains error messages to assert variables are as expected
+    
+    item_metadata = mock_execution_results_table_entry()
+    live_event = {
+        "execution_id": item_metadata['execution_id'],
+        "artifacts": {  
+            "execution_id": item_metadata['execution_id'],
+        },
+        "State_Config": {
+            "Name": "test",
+            "Parameters": {
+                "firstname": "Lana",
+                "lastname": "Kane"
+            }
+        },
+        "errors": {"error": "this is an error"}
+    }
+    exepected_event = {
+        "datetime": item_metadata['datetime'], 
+        "execution_id": item_metadata['execution_id'], 
+        "investigation_id": item_metadata['investigation_id'], 
+        "results": {
+                'artifacts': {
+                    'event': {
+                        'id': item_metadata['id'],
+                        'created_at': item_metadata['datetime'],
+                        'data_types': {},
+                        'details': {
+                            "some": "randon text"
+                        },
+                        'event_type': 'Test integrations',
+                        'event_meta': {},
+                        'investigation_id': item_metadata['investigation_id'],
+                        'status_': 'open',
+                        'is_duplicate': False
+                    },
+                    'execution_id': item_metadata['execution_id']
+                },
+                'execution_id': item_metadata['execution_id'],
+                "errors": {"error": "this is an error"},
+                "results": {}
+            }
+        }
+
+    state_handler = StateHandler(live_event, MockLambdaContext(), mock_integration_handler)
+    assert state_handler.event == live_event
+    assert state_handler.testing == False
+    assert state_handler.state_config == live_event['State_Config']
+    assert state_handler.state_name == live_event['State_Config']['Name']
+    assert state_handler.state_parameters == live_event['State_Config']['Parameters']
+    assert state_handler.execution_id == live_event.get('execution_id','')
+    assert state_handler.context == exepected_event['results']
+    assert state_handler.integration_handler == mock_integration_handler
+
+def test_StateHandler_init_fails_on_live_event_missing_State_Config():
+    # test StateHandler init with live event that doesn't have State_Config to make it fail. Expecting it to raise an exception
+
+    item_metadata = mock_execution_results_table_entry()
+    live_event = {
+        "execution_id": item_metadata['execution_id'],
+        "artifacts": {
+            "execution_id": item_metadata['execution_id'],
+        }
+    }
+
+    with pytest.raises(KeyError, match="No State_Config was passed to the integration"):
+        state_handler = StateHandler(live_event, MockLambdaContext(), mock_integration_handler)
+
+def test_StateHandler_init_fails_on_live_event_missing_Name():
+    # test StateHandler init with live event that doesn't have Name to make it fail. Expecting it to raise an exception
+
+    item_metadata = mock_execution_results_table_entry()
+    live_event = {
+        "execution_id": item_metadata['execution_id'],
+        "artifacts": {
+            "execution_id": item_metadata['execution_id'],
+        },
+        "State_Config": {
+            "Parameters": {
+                "firstname": "Lana",
+                "lastname": "Kane"
+            }
+        }
+    }
+
+    with pytest.raises(KeyError, match="`Name` not set in State_Config"):
+        state_handler = StateHandler(live_event, MockLambdaContext(), mock_integration_handler)
+
+def test_StateHandler_init_fails_on_live_event_missing_Parameters():
+    # test StateHandler init with live event that doesn't have Parameters to make it fail. Expecting it to raise an exception
+
+    item_metadata = mock_execution_results_table_entry()
+    live_event = {
+        "execution_id": item_metadata['execution_id'],
+        "artifacts": {
+            "execution_id": item_metadata['execution_id'],
+        },
+        "State_Config": {
+            "Name": "test"
+        }
+    }
+
+    with pytest.raises(KeyError, match="`Parameters` not set in State_Config"):
+        state_handler = StateHandler(live_event, MockLambdaContext(), mock_integration_handler)
+
 def test_StateHandler_execute_with_testing_event():
+    # test StateHanlder execute with testing event
+
     testing_event = {
         "_testing": True,
         "State_Config": {
@@ -422,8 +357,9 @@ def test_StateHandler_execute_with_testing_event():
     assert state_handler.execute() == testing_event['State_Config']['Parameters']
 
 def test_StateHandler_execute_with_live_event():
-    #insert test item into mocked table
-    item_metadata = pre_save_dummy_execution_results()
+    # test StateHandler execute with live event
+
+    item_metadata = mock_execution_results_table_entry()
     event = {
         "execution_id": item_metadata['execution_id'],
         "investigation_id": item_metadata['investigation_id'],
@@ -437,23 +373,10 @@ def test_StateHandler_execute_with_live_event():
     state_handler = StateHandler(event, MockLambdaContext(), mock_integration_handler)
     assert state_handler.execute() == event['State_Config']['Parameters']
 
-def test_StateHandler_execute_with_live_event_without_execution_id():
-    #insert test item into mocked table
-    item_metadata = pre_save_dummy_execution_results()
-    live_event = {
-        "investigation_id": item_metadata['investigation_id'],
-        "results": {
-            "execution_id": item_metadata['execution_id'],
-            "artifacts": {},
-            "results":{}
-            }
-        }
-    live_event['State_Config'] = {"Name": "test", "Parameters":{"firstname":"Cyril", "lastname":"Figgis","middlename":"N/A"}}
-    with pytest.raises(Exception):
-        state_handler = StateHandler(live_event, MockLambdaContext(), mock_integration_handler)
-
 def test_StateHandler_execute_with_live_event_include_context():
-    item_metadata = pre_save_dummy_execution_results()
+    # test StateHandler execute with live event that has include_context set to True
+
+    item_metadata = mock_execution_results_table_entry()
     event = {
         "execution_id": item_metadata['execution_id'],
         "investigation_id": item_metadata['investigation_id'],
@@ -465,21 +388,52 @@ def test_StateHandler_execute_with_live_event_include_context():
         }
     event['State_Config'] = {"Name": "test", "Parameters":{"firstname":"Cyril", "lastname":"Figgis","middlename":"N/A"}}
     expected_result = {
-        "execution_id": item_metadata['execution_id'],
-        "artifacts": {
-            "execution_id": item_metadata['execution_id']
-        },
-        "firstname":"Cyril", 
-        "lastname":"Figgis",
-        "middlename":"N/A",
-        "results":{},
-        "errors": {}
-    }
+            'artifacts': {
+                'event': {
+                    'id': item_metadata['id'],
+                    'created_at': item_metadata['datetime'],
+                    'data_types': {},
+                    'details': {
+                        "some": "randon text"
+                    },
+                    'event_type': 'Test integrations',
+                    'event_meta': {},
+                    'investigation_id': item_metadata['investigation_id'],
+                    'status_': 'open',
+                    'is_duplicate': False
+                },
+                'execution_id': item_metadata['execution_id']
+            },
+            "firstname": "Cyril", 
+            "lastname": "Figgis",
+            "middlename": "N/A",
+            'execution_id': item_metadata['execution_id'],
+            "results": {},
+            "errors": {}
+        }    
     state_handler = StateHandler(event, MockLambdaContext(), mock_integration_handler, include_event=True)
     assert state_handler.execute() == expected_result
 
-def test_StateHandler_execute_with_live_event_return_non_dict():
-    item_metadata = pre_save_dummy_execution_results()
+def test_StateHandler_execute_fails_on_live_event_missing_execution_id():
+    # test StateHandler execute to fail on live event that doesn't have execution_id. Expecting it to raise an exception
+
+    item_metadata = mock_execution_results_table_entry()
+    live_event = {
+        "investigation_id": item_metadata['investigation_id'],
+        "results": {
+            "execution_id": item_metadata['execution_id'],
+            "artifacts": {},
+            "results":{}
+            }
+        }
+    live_event['State_Config'] = {"Name": "test", "Parameters":{"firstname":"Cyril", "lastname":"Figgis","middlename":"N/A"}}
+    with pytest.raises(Exception, match="Execution id not found in non-testing context"):
+        state_handler = StateHandler(live_event, MockLambdaContext(), mock_integration_handler)
+
+def test_StateHandler_execute_with_live_event_returning_non_dict():
+    # test StateHandler execute with live event to fail when an integration doesn't return a dict. Expecting it to raise an exception
+
+    item_metadata = mock_execution_results_table_entry()
     event = {
         "execution_id": item_metadata['execution_id'],
         "investigation_id": item_metadata['investigation_id'],
@@ -491,5 +445,5 @@ def test_StateHandler_execute_with_live_event_return_non_dict():
         }
     event['State_Config'] = {"Name": "test", "Parameters":{"firstname":"Cyril", "lastname":"Figgis","middlename":"N/A"}}
     state_handler = StateHandler(event, MockLambdaContext(), mock_integration_handler_return_string)
-    with pytest.raises(Exception):
+    with pytest.raises(Exception, match="Result returned from the integration handler is not a Python dictionary. Must be a Python dictionary"):
         result = state_handler.execute()

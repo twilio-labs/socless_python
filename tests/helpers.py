@@ -28,7 +28,7 @@ class MockLambdaContext:
 
 
 def mock_integration_handler(context={}, firstname='', middlename='', lastname=''):
-    """Mock integration handler object for testing
+    """Mock integration handler object for testing. The first argument context shouldn't be used. It's there for StateHandler class from integrations.py to use when include_context flag is set to True
     """
     result = {
         "firstname": firstname,
@@ -41,7 +41,7 @@ def mock_integration_handler(context={}, firstname='', middlename='', lastname='
     return result
 
 def mock_integration_handler_return_string(firstname='', middlename='', lastname=''):
-    """Mock integration handler object for testing
+    """Mock integration handler to return a string. It can be used to test StateHandler's error handling since it's supposed to raise an exception when an integration returns non-dict
     """
     return 'No dict'
 
@@ -74,21 +74,88 @@ def dict_to_item(raw,convert_root=True):
 
     return item if convert_root else item['M']
 
-def pre_save_dummy_execution_results():
+def mock_execution_results_table_entry():
+    # setup db context for execution results table entry
+
+    random_id = gen_id()
     execution_id = gen_id()
     investigation_id = gen_id()
     date_time = gen_datetimenow()
+    context = {
+            "datetime": date_time,
+            "execution_id": execution_id,
+            "investigation_id": investigation_id,
+            "results": {
+                'artifacts': {
+                    'event': {
+                        'id': random_id,
+                        'created_at': date_time,
+                        'data_types': {},
+                        'details': {
+                            "some": "randon text"
+                        },
+                        'event_type': 'Test integrations',
+                        'event_meta': {},
+                        'investigation_id': investigation_id,
+                        'status_': 'open',
+                        'is_duplicate': False
+                    },
+                    'execution_id': execution_id
+                },
+                "errors": {},
+                "results": {}
+            }
+        }
     results_table_name = os.environ['SOCLESS_RESULTS_TABLE']
     client = boto3.client('dynamodb')
     client.put_item(
         TableName=results_table_name,
-        Item={
-            "datetime": { "S": date_time },
-            "execution_id": { "S": execution_id },
-            "investigation_id": { "S":investigation_id },
-            "results": dict_to_item({"artifacts": {"execution_id": execution_id}, "errors": {},"results":{}})
-        }
+        Item=dict_to_item(
+            context,
+            convert_root=False
+        )
     )
-    return {"execution_id": execution_id,
+    return {'id': random_id,
+            "execution_id": execution_id,
             "investigation_id": investigation_id,
-            "datetime": date_time}
+            "datetime": date_time,
+            'context': context}
+
+def mock_sfn_db_context():
+    # setup db context for step function
+
+    item_metadata = mock_execution_results_table_entry()
+    task_token = gen_id()
+    sfn_context = {
+            'task_token': task_token,
+            'sfn_context': {
+                'execution_id': item_metadata['execution_id'],
+                'artifacts': {
+                    'event': {
+                        'id': item_metadata['id'],
+                        'created_at': item_metadata['datetime'],
+                        'data_types': {},
+                        'details': {
+                            "some": "randon text"
+                        },
+                        'event_type': 'Test sfn',
+                        'event_meta': {},
+                        'investigation_id': item_metadata['investigation_id'],
+                        'status_': 'open',
+                        'is_duplicate': False
+                    },
+                    'execution_id': item_metadata['execution_id']
+                },
+                'State_Config': {
+                    'Name': "Test state name",
+                    'Parameters': {}
+                }
+            }
+        }
+    return {'id': item_metadata['id'],
+            'task_token': task_token,
+            "execution_id": item_metadata['execution_id'],
+            "investigation_id": item_metadata['investigation_id'],
+            "datetime": item_metadata['datetime'],
+            'sfn_context': sfn_context,
+            'db_context': item_metadata['context']}
