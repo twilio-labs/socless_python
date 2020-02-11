@@ -13,7 +13,6 @@
 # limitations under the License
 from tests.conftest import * #imports testing boilerplate
 from .helpers import MockLambdaContext, dict_to_item
-from pprint import pprint
 import json, os
 from copy import deepcopy
 import pytest
@@ -341,7 +340,6 @@ def test_EventBatch_execute_playbook():
     batched_event = EventBatch(MOCK_EVENT_BATCH, MockLambdaContext())
     result = batched_event.execute_playbook(convert_empty_strings_to_none(MOCK_EVENT))
 
-    pprint(result)
     assert result['status'] == True
     assert isinstance(result['message']['execution_id'], str)
     assert isinstance(result['message']['investigation_id'], str)
