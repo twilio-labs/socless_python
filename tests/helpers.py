@@ -14,13 +14,16 @@
 """
 Helpers
 """
+import os
+
+account_id = os.environ['MOTO_ACCOUNT_ID']
 
 
 class MockLambdaContext:
     """Mock Lambda context object
     """
 
-    invoked_function_arn = "arn:aws:lambda:us-west-2:200000000:function:_socless_playground"
+    invoked_function_arn = f"arn:aws:lambda:us-west-2:{account_id}:function:_socless_playground"
 
 
 def mock_integration_handler(firstname='', middlename='', lastname=''):
@@ -31,3 +34,32 @@ def mock_integration_handler(firstname='', middlename='', lastname=''):
         "middlename": middlename,
         "lastname": lastname
     }
+
+def dict_to_item(raw,convert_root=True):
+    """Convert a dictionary object to a DynamoDB Item format for put_object
+
+    Args:
+        raw (dict): The python type to convert
+        convert_root (bool): If a dictionary,
+
+    """
+    if isinstance(raw, dict):
+        item = {
+            'M': {
+                k: dict_to_item(v)
+                for k, v in raw.items()
+            }
+        }
+    elif isinstance(raw, list):
+        item =  {
+            'L': [dict_to_item(v) for v in raw]
+        }
+    elif isinstance(raw, str):
+        item =  {'S': raw}
+        # item =  {'S': raw if raw else None} #replace empty strings with None
+    elif isinstance(raw,bool):
+        item =  {'BOOL': raw}
+    elif isinstance(raw, int):
+        item =  {'N': str(raw)}
+
+    return item if convert_root else item['M']

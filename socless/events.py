@@ -36,6 +36,7 @@ class EventCreator:
     def __init__(self, event_info):
         """
         """
+        
         self.event_info = event_info
 
         self.event_type = event_info.get('event_type')
@@ -82,7 +83,16 @@ class EventCreator:
 
     @property
     def dedup_hash(self):
-        """Property that returns the deduplication hash
+        """Property that returns the deduplication hash.
+
+        Using the keys in the 'dedup_keys' list, build a single string that 
+        includes each associated value in the 'details' field for this event.
+
+        This string will be the same for every event that is triggered
+        with the exact event details and dedup_keys.
+
+        Returns:
+            A hashed string for deduplicating an event triggered twice.
         """
         sorted_dedup_vals = sorted([self.details[key].lower() for key in self.dedup_keys])
         dedup_signature = self.event_type.lower() + ''.join(sorted_dedup_vals)
@@ -105,7 +115,7 @@ class EventCreator:
             if not current_investigation_id:
                 socless_log.warn('unmapped dedup_hash detected in dedup table', {'dedup_hash': self._cached_dedup_hash})
                 return
-            current_investigation = event_table.get_item(Key={'id': current_investigation_id}).get('Item')
+            current_investigation = event_table.get_item(Key={ 'id': current_investigation_id}).get('Item')
             if current_investigation and current_investigation['status_'] != 'closed':
                 self.investigation_id = current_investigation['investigation_id']
                 self.status_ = 'closed'
@@ -114,7 +124,9 @@ class EventCreator:
         return
 
     def create(self):
-        """Create an event
+        """Create an event.
+
+        Check if event is duplicate, if not then add it to the dedup table.
         """
         # Deduplicate the event if there are dedup keys set
         if self.dedup_keys:
@@ -124,8 +136,6 @@ class EventCreator:
                 new_dedup_mapping = {'dedup_hash': self._cached_dedup_hash,
                                      'current_investigation_id': self.investigation_id}
                 dedup_table.put_item(Item=new_dedup_mapping)
-            else:
-                pass
         else:
             pass
 
@@ -141,6 +151,8 @@ class EventCreator:
             'status_': self.status_,
             'is_duplicate': self.is_duplicate
         }
+        if self.playbook:
+            event['playbook'] = self.playbook 
         event_table.put_item(Item=event)
         return event
 
@@ -195,17 +207,22 @@ class EventBatch():
             event_info['event_type'] = self.event_type
             event_info['event_meta'] = self.event_meta
             event_info['dedup_keys'] = self.dedup_keys
+            if self.playbook:
+                event_info['playbook'] = self.playbook
 
             event = EventCreator(event_info).create()
             # Trigger execution of a playbook if playbook was supplied
             if self.playbook:
                 execution_statuses.append(self.execute_playbook(event, event['investigation_id']))
+        
+        #! FIX: Will always return true, message is a list of individual
+        #! playbook responses that may be true or false (error) responses
         return {"status": True, "message": execution_statuses}
 
     def execute_playbook(self, entry, investigation_id=''):
-        """Execute a playbook for an event
+        """Execute a playbook for a SOCless event.
         Args:
-            event (dict): The event details
+            entry (dict): The event details
             investigation_id (str): The investigation_id to use
             playbook (str): The name of the playbook to execute
         Returns:
