@@ -61,6 +61,8 @@ def test_ParameterResolver_resolve_reference(TestParamResolver):
     assert TestParamResolver.resolve_reference({"firstname": "$.artifacts.event.details.firstname"}) == {"firstname": "Sterling"}
     # Test with not dict or string reference
     assert TestParamResolver.resolve_reference(['test']) == ["test"]
+    # Test with list containing nested parameters
+    assert TestParamResolver.resolve_reference([{"firstname": "$.artifacts.event.details.firstname"}, "$.artifacts.event.details.lastname"]) == [{"firstname": "Sterling"}, "Archer"]
 
 def test_ParameterResolver_resolve_parameters(TestParamResolver):
     # Test with static string, vault reference, JsonPath reference, and conversion
@@ -69,9 +71,15 @@ def test_ParameterResolver_resolve_parameters(TestParamResolver):
         "lastname": "$.artifacts.event.details.lastname",
         "middlename": "Malory",
         "vault.txt": "vault:socless_vault_tests.txt",
-        "vault.json": "vault:socless_vault_tests.json!json"
+        "vault.json": "vault:socless_vault_tests.json!json",
+        "acquaintances": [
+            {
+                "firstname": "$.artifacts.event.details.middlename",
+                "lastname": "$.artifacts.event.details.lastname"
+            }
+        ]
     }
-    assert TestParamResolver.resolve_parameters(parameters) == {"firstname": "Sterling", "lastname": "Archer", "middlename": "Malory", "vault.txt":"this came from the vault", "vault.json": {'hello':'world'}}
+    assert TestParamResolver.resolve_parameters(parameters) == {"firstname": "Sterling", "lastname": "Archer", "middlename": "Malory", "vault.txt":"this came from the vault", "vault.json": {'hello':'world'}, "acquaintances": [{"firstname": "Malory", "lastname": "Archer"}]}
 
 def test_ParameterResolver_apply_conversion_from(TestParamResolver):
     # Test convert from json
@@ -138,10 +146,10 @@ def test_ExecutionContext_save_state_results():
     assert saved_result['Item']['execution_id'] == item_metadata['execution_id']
     assert saved_result['Item']['investigation_id'] == item_metadata['investigation_id']
     assert saved_result['Item']['datetime'] == item_metadata['datetime']
-    
+
 def test_StateHandler_init_with_testing_event():
     # test StateHandler init with testing event to assert variables are as expected
-    
+
     testing_event = {
         "_testing": True,
         "State_Config": {
@@ -170,7 +178,7 @@ def test_StateHandler_init_with_live_event():
     item_metadata = mock_execution_results_table_entry()
     live_event = {
         "execution_id": item_metadata['execution_id'],
-        "artifacts": {  
+        "artifacts": {
             "execution_id": item_metadata['execution_id'],
         },
         "State_Config": {
@@ -183,9 +191,9 @@ def test_StateHandler_init_with_live_event():
         "errors": {"error": "this is an error"}
     }
     exepected_event = {
-        "datetime": item_metadata['datetime'], 
-        "execution_id": item_metadata['execution_id'], 
-        "investigation_id": item_metadata['investigation_id'], 
+        "datetime": item_metadata['datetime'],
+        "execution_id": item_metadata['execution_id'],
+        "investigation_id": item_metadata['investigation_id'],
         "results": {
                 'artifacts': {
                     'event': {
@@ -235,11 +243,11 @@ def test_StateHandler_init_with_task_token_event():
 
 def test_StateHandler_init_with_live_event_with_errors():
     # test StateHandler init with live event that contains error messages to assert variables are as expected
-    
+
     item_metadata = mock_execution_results_table_entry()
     live_event = {
         "execution_id": item_metadata['execution_id'],
-        "artifacts": {  
+        "artifacts": {
             "execution_id": item_metadata['execution_id'],
         },
         "State_Config": {
@@ -252,9 +260,9 @@ def test_StateHandler_init_with_live_event_with_errors():
         "errors": {"error": "this is an error"}
     }
     exepected_event = {
-        "datetime": item_metadata['datetime'], 
-        "execution_id": item_metadata['execution_id'], 
-        "investigation_id": item_metadata['investigation_id'], 
+        "datetime": item_metadata['datetime'],
+        "execution_id": item_metadata['execution_id'],
+        "investigation_id": item_metadata['investigation_id'],
         "results": {
                 'artifacts': {
                     'event': {
@@ -404,13 +412,13 @@ def test_StateHandler_execute_with_live_event_include_context():
                 },
                 'execution_id': item_metadata['execution_id']
             },
-            "firstname": "Cyril", 
+            "firstname": "Cyril",
             "lastname": "Figgis",
             "middlename": "N/A",
             'execution_id': item_metadata['execution_id'],
             "results": {},
             "errors": {}
-        }    
+        }
     state_handler = StateHandler(event, MockLambdaContext(), mock_integration_handler, include_event=True)
     assert state_handler.execute() == expected_result
 
