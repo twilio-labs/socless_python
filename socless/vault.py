@@ -22,7 +22,7 @@ VAULT_TOKEN = "vault:"
 SOCLESS_VAULT = os.environ['SOCLESS_VAULT']
 
 def save_to_vault(content, prefix=""):
-    """Save content to the Vault
+    """Save content to the Vault.
 
     Args:
         content (str): The string to save to the Socless vault
@@ -38,13 +38,14 @@ def save_to_vault(content, prefix=""):
         file_id = prefix + file_id
     bucket.put_object(Key=file_id,Body=content) #TODO: Should I try catch or let it fail here
     result = {
-    "file_id": file_id,
-    "vault_id": f"{VAULT_TOKEN}{file_id}"
+        "file_id": file_id,
+        "vault_id": "{}{}".format(VAULT_TOKEN,file_id)
     }
+
     return result
 
 def fetch_from_vault(file_id,content_only=False):
-    """Fetch an item from the Vault
+    """Fetch an item from the Vault.
 
     Args:
         file_id (string): Path to object in the Vault
@@ -64,20 +65,21 @@ def fetch_from_vault(file_id,content_only=False):
     }
     if content_only:
         return meta["content"]
+    
     return meta
 
 def remove_from_vault(file_id):
-    """Remove an item from the Vault
+    """Remove an item from the Vault.
 
     Args:
         file_id (string): Path to object in the Vault
 
     Returns:
         dict: The response metadata of the attempt to remove the obejct from vault
-
     """
     s3 = boto3.resource('s3')
     bucket = s3.Bucket(SOCLESS_VAULT)
     obj = bucket.Object(file_id)
     data = obj.delete()
+
     return data

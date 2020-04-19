@@ -17,6 +17,7 @@ Classes and modules for Integrations
 import boto3, simplejson as json, os
 from .logger import socless_log
 from .vault import fetch_from_vault
+from .utils import convert_empty_strings_to_none
 
 VAULT_TOKEN = "vault:"
 PATH_TOKEN = "$."
@@ -36,7 +37,7 @@ class ParameterResolver:
         Does not support the full JsonPath specification
 
         Args:
-            reference: The JsonPath reference e.g. $.artifacts.investigation_id
+            path: The JsonPath reference e.g. $.artifacts.investigation_id
         Returns:
             The referenced element. May be any Python built-in type
         """
@@ -84,6 +85,11 @@ class ParameterResolver:
                 for key, value in list(reference_path.items()):
                     resolved_dict[key] = self.resolve_reference(value)
                 return resolved_dict
+            elif isinstance(reference_path, list):
+                resolved_list = []
+                for item in reference_path:
+                    resolved_list.append(self.resolve_reference(item))
+                return resolved_list
             else:
                 return reference_path
 
@@ -148,9 +154,11 @@ class ExecutionContext:
         item_resp = results_table.get_item(Key={
             'execution_id': self.execution_id
         },ConsistentRead=True)
-        item = item_resp.get("Item",{})
+
+        item = item_resp.get("Item", {})
         if not item:
-            raise Exception(f"Error: Unable to get execution_id {self.execution_id} from {RESULTS_TABLE}")
+            raise Exception(f"Error: Unable to get execution_id {self.execution_id} from {RESULTS_TABLE}.")
+
         return item
 
     def save_state_results(self,state_name,result, errors={}):
@@ -165,6 +173,8 @@ class ExecutionContext:
         error_expression = ""
         expression_attributes = {':r': result}
         if errors:
+            #if Timeout, Error cause is empty string.
+            errors = convert_empty_strings_to_none(errors)
             error_expression = ",#results.errors = :e"
             expression_attributes[':e'] = errors
 
