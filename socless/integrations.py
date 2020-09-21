@@ -37,7 +37,7 @@ class ParameterResolver:
         Does not support the full JsonPath specification
 
         Args:
-            reference: The JsonPath reference e.g. $.artifacts.investigation_id
+            path: The JsonPath reference e.g. $.artifacts.investigation_id
         Returns:
             The referenced element. May be any Python built-in type
         """
@@ -85,6 +85,11 @@ class ParameterResolver:
                 for key, value in list(reference_path.items()):
                     resolved_dict[key] = self.resolve_reference(value)
                 return resolved_dict
+            elif isinstance(reference_path, list):
+                resolved_list = []
+                for item in reference_path:
+                    resolved_list.append(self.resolve_reference(item))
+                return resolved_list
             else:
                 return reference_path
 
@@ -149,9 +154,11 @@ class ExecutionContext:
         item_resp = results_table.get_item(Key={
             'execution_id': self.execution_id
         },ConsistentRead=True)
-        item = item_resp.get("Item",{})
+
+        item = item_resp.get("Item", {})
         if not item:
-            raise Exception("Error: Unable to get execution_id {} from {}".format(self.execution_id, RESULTS_TABLE))
+            raise Exception(f"Error: Unable to get execution_id {self.execution_id} from {RESULTS_TABLE}.")
+
         return item
 
     def save_state_results(self,state_name,result, errors={}):
