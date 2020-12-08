@@ -18,3 +18,4 @@ venv*
 .tox
 .coverage
 htmlcov
+.vscode/*

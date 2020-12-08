@@ -45,10 +45,6 @@ PATH_TOKEN = "$."
 CONVERSION_TOKEN = "!"
 
 
-class SoclessException(Exception):
-    pass
-
-
 class socless_log:
     ERROR = "ERROR"
     INFO = "INFO"

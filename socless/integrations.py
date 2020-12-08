@@ -18,7 +18,7 @@ import boto3, simplejson as json, os
 from .logger import socless_log
 from .vault import fetch_from_vault
 from .utils import convert_empty_strings_to_none
-from .socless import SoclessException
+from .exceptions import SoclessException
 
 VAULT_TOKEN = "vault:"
 PATH_TOKEN = "$."
