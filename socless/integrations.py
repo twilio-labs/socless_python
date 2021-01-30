@@ -18,6 +18,7 @@ import boto3, simplejson as json, os
 from .logger import socless_log
 from .vault import fetch_from_vault
 from .utils import convert_empty_strings_to_none
+from .exceptions import SoclessException
 
 VAULT_TOKEN = "vault:"
 PATH_TOKEN = "$."
@@ -25,12 +26,10 @@ CONVERSION_TOKEN = "!"
 
 
 class ParameterResolver:
-    """Evaluates parameter references for integrations
-    """
+    """Evaluates parameter references for integrations"""
 
-    def __init__(self,root_obj):
+    def __init__(self, root_obj):
         self.root_obj = root_obj
-
 
     def resolve_jsonpath(self, path):
         """Resolves a JsonPath reference to the actual value referenced.
@@ -41,12 +40,17 @@ class ParameterResolver:
         Returns:
             The referenced element. May be any Python built-in type
         """
-        pre, sep, post = path.partition(PATH_TOKEN)
-        keys = post.split('.')
+        _pre, _sep, post = path.partition(PATH_TOKEN)
+        keys = post.split(".")
         obj_copy = self.root_obj.copy()
         for key in keys:
-            value = obj_copy.get(key)
-            if isinstance(value,str) and value.startswith(VAULT_TOKEN):
+            try:
+                value = obj_copy.get(key)
+            except AttributeError:
+                raise SoclessException(
+                    f"Unable to resolve key {key}, parent object does not exist. Full path: {path}"
+                )
+            if isinstance(value, str) and value.startswith(VAULT_TOKEN):
                 actual = self.resolve_vault_path(value)
             else:
                 actual = value
@@ -66,7 +70,7 @@ class ParameterResolver:
             str: The content of the referenced Vault object
         """
         _, __, file_id = path.partition(VAULT_TOKEN)
-        data = fetch_from_vault(file_id,content_only=True)
+        data = fetch_from_vault(file_id, content_only=True)
         return data
 
     def resolve_reference(self, reference_path):
@@ -93,18 +97,21 @@ class ParameterResolver:
             else:
                 return reference_path
 
-        if not (reference_path.startswith(VAULT_TOKEN) or reference_path.startswith(PATH_TOKEN)):
+        if not (
+            reference_path.startswith(VAULT_TOKEN)
+            or reference_path.startswith(PATH_TOKEN)
+        ):
             return reference_path
 
-        reference, _ , conversion = reference_path.partition(CONVERSION_TOKEN)
+        reference, _, conversion = reference_path.partition(CONVERSION_TOKEN)
 
         if reference.startswith(PATH_TOKEN):
-            resolved =  self.resolve_jsonpath(reference)
+            resolved = self.resolve_jsonpath(reference)
         elif reference.startswith(VAULT_TOKEN):
-            resolved =  self.resolve_vault_path(reference)
+            resolved = self.resolve_vault_path(reference)
 
         if conversion:
-            resolved = self.apply_conversion_from(resolved,conversion)
+            resolved = self.apply_conversion_from(resolved, conversion)
         return resolved
 
     def resolve_parameters(self, parameters):
@@ -120,7 +127,7 @@ class ParameterResolver:
             actual_params[parameter] = self.resolve_reference(reference)
         return actual_params
 
-    def apply_conversion_from(self,data,conversion):
+    def apply_conversion_from(self, data, conversion):
         """Convert the data type of a parameter
 
         Handles conversion of the datatype of a parameter intended for an integration
@@ -134,11 +141,11 @@ class ParameterResolver:
         if conversion == "json":
             return json.loads(data)
 
-class ExecutionContext:
-    """The execution context object
-    """
 
-    def __init__(self,execution_id):
+class ExecutionContext:
+    """The execution context object"""
+
+    def __init__(self, execution_id):
         self.execution_id = execution_id
 
     def fetch_context(self):
@@ -149,53 +156,53 @@ class ExecutionContext:
         Returns:
             dict: The execution result object
         """
-        RESULTS_TABLE = os.environ.get('SOCLESS_RESULTS_TABLE')
-        results_table = boto3.resource('dynamodb').Table(RESULTS_TABLE)
-        item_resp = results_table.get_item(Key={
-            'execution_id': self.execution_id
-        },ConsistentRead=True)
+        RESULTS_TABLE = os.environ.get("SOCLESS_RESULTS_TABLE")
+        results_table = boto3.resource("dynamodb").Table(RESULTS_TABLE)
+        item_resp = results_table.get_item(
+            Key={"execution_id": self.execution_id}, ConsistentRead=True
+        )
 
         item = item_resp.get("Item", {})
         if not item:
-            raise Exception(f"Error: Unable to get execution_id {self.execution_id} from {RESULTS_TABLE}.")
+            raise Exception(
+                f"Error: Unable to get execution_id {self.execution_id} from {RESULTS_TABLE}."
+            )
 
         return item
 
-    def save_state_results(self,state_name,result, errors={}):
+    def save_state_results(self, state_name, result, errors={}):
         """Save the results of a State's execution to the Execution results table
         Args:
             state_name (str): The name of the state
             result (obj): The result to save
         """
-        RESULTS_TABLE = os.environ.get('SOCLESS_RESULTS_TABLE')
-        results_table = boto3.resource('dynamodb').Table(RESULTS_TABLE)
+        RESULTS_TABLE = os.environ.get("SOCLESS_RESULTS_TABLE")
+        results_table = boto3.resource("dynamodb").Table(RESULTS_TABLE)
 
         error_expression = ""
-        expression_attributes = {':r': result}
+        expression_attributes = {":r": result}
         if errors:
-            #if Timeout, Error cause is empty string.
+            # if Timeout, Error cause is empty string.
             errors = convert_empty_strings_to_none(errors)
             error_expression = ",#results.errors = :e"
-            expression_attributes[':e'] = errors
+            expression_attributes[":e"] = errors
 
         results_table.update_item(
-            Key={
-                "execution_id": self.execution_id
-            },
-            UpdateExpression=f'SET #results.#results.#name = :r, #results.#results.#last_results = :r {error_expression}',
+            Key={"execution_id": self.execution_id},
+            UpdateExpression=f"SET #results.#results.#name = :r, #results.#results.#last_results = :r {error_expression}",
             ExpressionAttributeValues=expression_attributes,
             ExpressionAttributeNames={
                 "#results": "results",
                 "#name": state_name,
-                "#last_results": '_Last_Saved_Results'
-            }
+                "#last_results": "_Last_Saved_Results",
+            },
         )
 
-class StateHandler:
-    """Controls the execution of an integration for a given state in a Playbook
-    """
 
-    def __init__(self,event,lambda_context,integration_handler,include_event=False):
+class StateHandler:
+    """Controls the execution of an integration for a given state in a Playbook"""
+
+    def __init__(self, event, lambda_context, integration_handler, include_event=False):
         """
         Args:
             event (dict): The input passed to the Lambda function by the service that triggered it
@@ -203,64 +210,67 @@ class StateHandler:
             integration_handler (func): The function that implements the integrations business logic
             include_playbook_context (bool): Set to `True` to make the full context object of the executing playbook available to the integration
         """
-        #TODO: Figure out how to handle include_event
+        # TODO: Figure out how to handle include_event
         if "task_token" in event:
-            self.task_token = event['task_token']
-            self.event = event['sfn_context']
+            self.task_token = event["task_token"]
+            self.event = event["sfn_context"]
         else:
             self.task_token = ""
             self.event = event
 
-        self.testing = bool(self.event.get('_testing'))
+        self.testing = bool(self.event.get("_testing"))
         try:
-            self.state_config = self.event['State_Config']
+            self.state_config = self.event["State_Config"]
         except:
             raise KeyError("No State_Config was passed to the integration")
 
         try:
-            self.state_name = self.state_config['Name']
+            self.state_name = self.state_config["Name"]
         except:
             raise KeyError("`Name` not set in State_Config")
 
         try:
-            self.state_parameters = self.state_config['Parameters']
+            self.state_parameters = self.state_config["Parameters"]
         except:
             raise KeyError("`Parameters` not set in State_Config")
 
-        self.execution_id = self.event.get('execution_id','')
+        self.execution_id = self.event.get("execution_id", "")
         if self.testing:
             self.context = self.event
         else:
             if self.execution_id:
                 self.execution_context = ExecutionContext(self.execution_id)
-                self.context = self.execution_context.fetch_context()['results']
-                self.context['execution_id'] = self.execution_id
-                if 'errors' in self.event:
-                    self.context['errors'] = self.event['errors']
+                self.context = self.execution_context.fetch_context()["results"]
+                self.context["execution_id"] = self.execution_id
+                if "errors" in self.event:
+                    self.context["errors"] = self.event["errors"]
                 if self.task_token:
-                    self.context['task_token'] = self.task_token
-                    self.context['state_name'] = self.state_name
+                    self.context["task_token"] = self.task_token
+                    self.context["state_name"] = self.state_name
             else:
                 raise Exception("Execution id not found in non-testing context")
 
         self.integration_handler = integration_handler
         self.include_event = include_event
-        #TODO: Find a way to maintain the execution_id between lambdas
+        # TODO: Find a way to maintain the execution_id between lambdas
 
     def execute(self):
-        """Execute the integration to fulfil the assigned state
-        """
+        """Execute the integration to fulfil the assigned state"""
         resolver = ParameterResolver(self.context)
         actual_params = resolver.resolve_parameters(self.state_parameters)
         if self.include_event:
-            result = self.integration_handler(self.context,**actual_params)
+            result = self.integration_handler(self.context, **actual_params)
         else:
             result = self.integration_handler(**actual_params)
 
         if not isinstance(result, dict):
-            raise Exception("Result returned from the integration handler is not a Python dictionary. Must be a Python dictionary")
+            raise Exception(
+                "Result returned from the integration handler is not a Python dictionary. Must be a Python dictionary"
+            )
 
         if not self.testing:
-            self.execution_context.save_state_results(self.state_name, result, errors=self.context.get('errors', {}))
+            self.execution_context.save_state_results(
+                self.state_name, result, errors=self.context.get("errors", {})
+            )
 
         return result
