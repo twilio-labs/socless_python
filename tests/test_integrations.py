@@ -15,6 +15,7 @@ import boto3, pytest, os
 from tests.conftest import *  #imports testing boilerplate
 from socless.integrations import ParameterResolver, StateHandler, ExecutionContext
 from socless.utils import gen_id
+from socless.exceptions import SoclessBootstrapError
 from .helpers import mock_integration_handler, mock_integration_handler_return_string, MockLambdaContext, mock_sfn_db_context, mock_execution_results_table_entry
 
 
@@ -359,7 +360,7 @@ def test_StateHandler_init_fails_on_live_event_missing_Name():
         }
     }
 
-    with pytest.raises(KeyError, match="`Name` not set in State_Config"):
+    with pytest.raises(SoclessBootstrapError, match="`Name` not set in State_Config"):
         StateHandler(live_event, MockLambdaContext(), mock_integration_handler)
 
 
@@ -377,7 +378,7 @@ def test_StateHandler_init_fails_on_live_event_missing_Parameters():
         }
     }
 
-    with pytest.raises(KeyError, match="`Parameters` not set in State_Config"):
+    with pytest.raises(SoclessBootstrapError, match="`Parameters` not set in State_Config"):
         StateHandler(live_event, MockLambdaContext(), mock_integration_handler)
 
 

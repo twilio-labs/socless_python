@@ -19,3 +19,7 @@ Socless Exception classes
 
 class SoclessException(Exception):
     pass
+
+
+class SoclessBootstrapError(Exception):
+    pass

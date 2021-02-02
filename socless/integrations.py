@@ -15,10 +15,12 @@
 Classes and modules for Integrations
 """
 import boto3, simplejson as json, os
+from typing import Callable
 from .logger import socless_log
 from .vault import fetch_from_vault
 from .utils import convert_empty_strings_to_none
-from .exceptions import SoclessException
+from .exceptions import SoclessException, SoclessBootstrapError
+from .aws_classes import LambdaContext
 
 VAULT_TOKEN = "vault:"
 PATH_TOKEN = "$."
@@ -237,17 +239,19 @@ from outside of a SOCless playbook. Running this lambda in test mode."
                     "State_Config": self.state_config,  # maybe this will fix it?
                 }
             else:
-                raise KeyError("No State_Config was passed to the integration")
+                raise SoclessBootstrapError(
+                    "No `State_Config` was passed to the integration"
+                )
 
         try:
             self.state_name = self.state_config["Name"]
         except KeyError:
-            raise KeyError("`Name` not set in State_Config")
+            raise SoclessBootstrapError("`Name` not set in State_Config")
 
         try:
             self.state_parameters = self.state_config["Parameters"]
         except KeyError:
-            raise KeyError("`Parameters` not set in State_Config")
+            raise SoclessBootstrapError("`Parameters` not set in State_Config")
 
         if self.testing:
             self.context = self.event
@@ -262,7 +266,9 @@ from outside of a SOCless playbook. Running this lambda in test mode."
                     self.context["task_token"] = self.task_token
                     self.context["state_name"] = self.state_name
             else:
-                raise Exception("Execution id not found in non-testing context")
+                raise SoclessBootstrapError(
+                    "Execution id not found in non-testing context"
+                )
 
         self.integration_handler = integration_handler
         self.include_event = include_event
@@ -278,7 +284,7 @@ from outside of a SOCless playbook. Running this lambda in test mode."
             result = self.integration_handler(**actual_params)
 
         if not isinstance(result, dict):
-            raise Exception(
+            raise SoclessBootstrapError(
                 "Result returned from the integration handler is not a Python dictionary. Must be a Python dictionary"
             )
 
@@ -290,7 +296,9 @@ from outside of a SOCless playbook. Running this lambda in test mode."
         return result
 
 
-def socless_bootstrap(event, context, handler, include_event=False):
+def socless_bootstrap(
+    event: dict, context: LambdaContext, handler: Callable, include_event=False
+):
     """Setup and run an integration's business logic
 
     Args:
