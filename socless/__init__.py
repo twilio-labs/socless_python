@@ -11,9 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License
+
+# flake8: noqa
 from .socless import *
 from .events import create_events
 from .vault import *
 from .humaninteraction import init_human_interaction, end_human_interaction
 from .s3 import *
 from .utils import *
+from .integrations import socless_bootstrap
