@@ -19,11 +19,9 @@ import boto3, os, uuid, simplejson as json, inspect
 from botocore.exceptions import ClientError
 from datetime import datetime
 from .jinja import jinja_env
-from .integrations import StateHandler
 
 # TODO: Deprecate socless_credentials
 __all__ = [
-    "socless_bootstrap",
     "socless_log",
     "socless_gen_id",
     "socless_credentials",
@@ -761,27 +759,3 @@ def socless_fetch_execution_result(execution_id, state_name):
             )
         )
     return item
-
-
-def socless_bootstrap(event, context, handler, include_event=False):
-    """Setup and run an integration's business logic
-
-    Args:
-        event (dict): The Lambda event object
-        context (obj): The Lambda context object
-        handler (func): The handler for the integration
-        include_event (bool): Indicates whether to make the full event object available
-            to the handler
-    Returns:
-        Dict containing the result of executing the integration
-    """
-    state_handler = StateHandler(event, context, handler, include_event=include_event)
-    result = state_handler.execute()
-    # README: Below code includes state_name with result so that parameters can be passed to choice state in the same way
-    # they are passed to integrations (i.e. with $.results.State_Name.parameters)
-    # However, maintain current status quo so that Choice states in current playbooks don't break
-    # TODO: Once Choice states in current playbooks have been updated to the new_style, update this code so result's are only nested under state_name
-    result_with_state_name = {state_handler.state_name: result}
-    result_with_state_name.update(result)
-    event["results"] = result_with_state_name
-    return event

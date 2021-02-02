@@ -15,10 +15,12 @@
 Classes and modules for Integrations
 """
 import boto3, simplejson as json, os
+from typing import Callable
 from .logger import socless_log
 from .vault import fetch_from_vault
 from .utils import convert_empty_strings_to_none
-from .exceptions import SoclessException
+from .exceptions import SoclessException, SoclessBootstrapError
+from .aws_classes import LambdaContext
 
 VAULT_TOKEN = "vault:"
 PATH_TOKEN = "$."
@@ -219,22 +221,38 @@ class StateHandler:
             self.event = event
 
         self.testing = bool(self.event.get("_testing"))
+        self.execution_id = self.event.get("execution_id", "")
+
         try:
             self.state_config = self.event["State_Config"]
-        except:
-            raise KeyError("No State_Config was passed to the integration")
+        except KeyError:
+            # not triggered from socless playbook (direct invoke via CLI, Test console, etc.)
+            if "execution_id" not in self.event and "artifacts" not in self.event:
+                socless_log.info(
+                    "No State_Config was passed to the integration, likely due to invocation \
+from outside of a SOCless playbook. Running this lambda in test mode."
+                )
+                self.testing = True
+                self.state_config = {"Name": "direct_invoke", "Parameters": self.event}
+                self.event = {
+                    "_testing": True,
+                    "State_Config": self.state_config,  # maybe this will fix it?
+                }
+            else:
+                raise SoclessBootstrapError(
+                    "No `State_Config` was passed to the integration"
+                )
 
         try:
             self.state_name = self.state_config["Name"]
-        except:
-            raise KeyError("`Name` not set in State_Config")
+        except KeyError:
+            raise SoclessBootstrapError("`Name` not set in State_Config")
 
         try:
             self.state_parameters = self.state_config["Parameters"]
-        except:
-            raise KeyError("`Parameters` not set in State_Config")
+        except KeyError:
+            raise SoclessBootstrapError("`Parameters` not set in State_Config")
 
-        self.execution_id = self.event.get("execution_id", "")
         if self.testing:
             self.context = self.event
         else:
@@ -248,7 +266,9 @@ class StateHandler:
                     self.context["task_token"] = self.task_token
                     self.context["state_name"] = self.state_name
             else:
-                raise Exception("Execution id not found in non-testing context")
+                raise SoclessBootstrapError(
+                    "Execution id not found in non-testing context"
+                )
 
         self.integration_handler = integration_handler
         self.include_event = include_event
@@ -264,7 +284,7 @@ class StateHandler:
             result = self.integration_handler(**actual_params)
 
         if not isinstance(result, dict):
-            raise Exception(
+            raise SoclessBootstrapError(
                 "Result returned from the integration handler is not a Python dictionary. Must be a Python dictionary"
             )
 
@@ -274,3 +294,30 @@ class StateHandler:
             )
 
         return result
+
+
+def socless_bootstrap(
+    event: dict, context: LambdaContext, handler: Callable, include_event=False
+):
+    """Setup and run an integration's business logic
+
+    Args:
+        event (dict): The Lambda event object
+        context (obj): The Lambda context object
+        handler (func): The handler for the integration
+        include_event (bool): Indicates whether to make the full event object available
+            to the handler
+    Returns:
+        Dict containing the result of executing the integration
+    """
+
+    state_handler = StateHandler(event, context, handler, include_event=include_event)
+    result = state_handler.execute()
+    # README: Below code includes state_name with result so that parameters can be passed to choice state in the same way
+    # they are passed to integrations (i.e. with $.results.State_Name.parameters)
+    # However, maintain current status quo so that Choice states in current playbooks don't break
+    # TODO: Once Choice states in current playbooks have been updated to the new_style, update this code so result's are only nested under state_name
+    result_with_state_name = {state_handler.state_name: result}
+    result_with_state_name.update(result)
+    event["results"] = result_with_state_name
+    return event
