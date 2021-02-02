@@ -18,7 +18,6 @@ from socless.utils import gen_id
 from socless.exceptions import SoclessBootstrapError
 from .helpers import mock_integration_handler, mock_integration_handler_return_string, MockLambdaContext, mock_sfn_db_context, mock_execution_results_table_entry
 
-
 @pytest.fixture()
 def root_obj():
     # setup root_obj for use in tesing TestParamResolver
@@ -494,3 +493,7 @@ def test_StateHandler_execute_with_live_event_returning_non_dict():
     state_handler = StateHandler(event, MockLambdaContext(), mock_integration_handler_return_string)
     with pytest.raises(Exception, match="Result returned from the integration handler is not a Python dictionary. Must be a Python dictionary"):
         state_handler.execute()
+
+
+def test_socless_bootstrap_can_be_imported():
+    from socless import socless_bootstrap # noqa: F401, E261
