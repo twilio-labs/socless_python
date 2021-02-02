@@ -228,7 +228,7 @@ class StateHandler:
         except KeyError:
             # not triggered from socless playbook (direct invoke via CLI, Test console, etc.)
             if "execution_id" not in self.event and "artifacts" not in self.event:
-                print(
+                socless_log.info(
                     "No State_Config was passed to the integration, likely due to invocation \
 from outside of a SOCless playbook. Running this lambda in test mode."
                 )
