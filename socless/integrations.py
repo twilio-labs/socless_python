@@ -21,6 +21,7 @@ from .vault import fetch_from_vault
 from .utils import convert_empty_strings_to_none
 from .exceptions import SoclessException, SoclessBootstrapError
 from .aws_classes import LambdaContext
+from .jinja import jinja_env
 
 VAULT_TOKEN = "vault:"
 PATH_TOKEN = "$."
@@ -317,3 +318,17 @@ def socless_bootstrap(
     result_with_state_name.update(result)
     event["results"] = result_with_state_name
     return event
+
+
+def socless_template_string(message, context):
+    """Render a templated string
+
+    Args:
+        message (str): The templated string to render
+        context (dict): The template parameters
+
+    Returns:
+        str: The rendered template
+    """
+    template = jinja_env.from_string(message)
+    return template.render(context=context).replace("&#34;", '"').replace("&#39;", "'")

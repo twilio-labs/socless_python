@@ -19,4 +19,4 @@ from .vault import *
 from .humaninteraction import init_human_interaction, end_human_interaction
 from .s3 import *
 from .utils import *
-from .integrations import socless_bootstrap
+from .integrations import socless_bootstrap, socless_template_string

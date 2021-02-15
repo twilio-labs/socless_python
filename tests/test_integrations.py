@@ -13,10 +13,11 @@
 # limitations under the License
 import boto3, pytest, os
 from tests.conftest import *  #imports testing boilerplate
-from socless.integrations import ParameterResolver, StateHandler, ExecutionContext
+from socless.integrations import ParameterResolver, StateHandler, ExecutionContext, socless_template_string
 from socless.utils import gen_id
 from socless.exceptions import SoclessBootstrapError
 from .helpers import mock_integration_handler, mock_integration_handler_return_string, MockLambdaContext, mock_sfn_db_context, mock_execution_results_table_entry
+
 
 @pytest.fixture()
 def root_obj():
@@ -185,6 +186,7 @@ def test_StateHandler_init_with_testing_event():
     assert state_handler.context == testing_event
     assert state_handler.integration_handler == mock_integration_handler
 
+
 def test_StateHandler_init_with_live_event():
     # test StateHandler init with live event to assert variables are as expected
 
@@ -208,27 +210,27 @@ def test_StateHandler_init_with_live_event():
         "execution_id": item_metadata['execution_id'],
         "investigation_id": item_metadata['investigation_id'],
         "results": {
-                'artifacts': {
-                    'event': {
-                        'id': item_metadata['id'],
-                        'created_at': item_metadata['datetime'],
-                        'data_types': {},
-                        'details': {
-                            "some": "randon text"
-                        },
-                        'event_type': 'Test integrations',
-                        'event_meta': {},
-                        'investigation_id': item_metadata['investigation_id'],
-                        'status_': 'open',
-                        'is_duplicate': False
+            'artifacts': {
+                'event': {
+                    'id': item_metadata['id'],
+                    'created_at': item_metadata['datetime'],
+                    'data_types': {},
+                    'details': {
+                        "some": "randon text"
                     },
-                    'execution_id': item_metadata['execution_id']
+                    'event_type': 'Test integrations',
+                    'event_meta': {},
+                    'investigation_id': item_metadata['investigation_id'],
+                    'status_': 'open',
+                    'is_duplicate': False
                 },
-                'execution_id': item_metadata['execution_id'],
-                "errors": {"error": "this is an error"},
-                "results": {}
-            }
+                'execution_id': item_metadata['execution_id']
+            },
+            'execution_id': item_metadata['execution_id'],
+            "errors": {"error": "this is an error"},
+            "results": {}
         }
+    }
 
     state_handler = StateHandler(live_event, MockLambdaContext(), mock_integration_handler)
     assert state_handler.event == live_event
@@ -236,13 +238,13 @@ def test_StateHandler_init_with_live_event():
     assert state_handler.state_config == live_event['State_Config']
     assert state_handler.state_name == live_event['State_Config']['Name']
     assert state_handler.state_parameters == live_event['State_Config']['Parameters']
-    assert state_handler.execution_id == live_event.get('execution_id','')
+    assert state_handler.execution_id == live_event.get('execution_id', '')
     assert state_handler.context == exepected_event['results']
     assert state_handler.integration_handler == mock_integration_handler
 
+
 def test_StateHandler_init_with_task_token_event():
     # test StateHandler init with taksk token event to assert variables are as expected
-
     sfn_item_metadata = mock_sfn_db_context()
     state_handler_db_context = sfn_item_metadata['db_context']
     sfn_context = sfn_item_metadata['sfn_context']
@@ -254,9 +256,9 @@ def test_StateHandler_init_with_task_token_event():
     assert state_handler.context['errors'] == state_handler_db_context['results']['errors']
     assert state_handler.context['results'] == state_handler_db_context['results']['results']
 
+
 def test_StateHandler_init_with_live_event_with_errors():
     # test StateHandler init with live event that contains error messages to assert variables are as expected
-
     item_metadata = mock_execution_results_table_entry()
     live_event = {
         "execution_id": item_metadata['execution_id'],
@@ -320,7 +322,7 @@ def test_StateHandler_init_without_state_config_and_artififacts_for_direct_invok
     }
 
     expected_direct_invoke_response = {
-        "_testing" : True, 
+        "_testing" : True,
         "State_Config": {
             "Name": "direct_invoke",
             "Parameters": {
@@ -497,3 +499,41 @@ def test_StateHandler_execute_with_live_event_returning_non_dict():
 
 def test_socless_bootstrap_can_be_imported():
     from socless import socless_bootstrap # noqa: F401, E261
+
+
+mock_context = {
+    "safe_string": "Elliot Alderson",
+    "unsafe_string": "<script>alert('Elliot Alderson')</script>",
+    "dict": {
+        "safe_string": "Elliot Alderson",
+        "unsafe_string": "<script>alert('Elliot Alderson')</script>",
+    },
+    "unicodelist": ["hello", "world"],
+}
+
+
+def test_safe_string():
+    assert (
+        socless_template_string("Hello {context.safe_string}", mock_context)
+        == "Hello Elliot Alderson"
+    )
+
+
+def test_unsafe_string():
+    assert (
+        socless_template_string("Hello {context.unsafe_string}", mock_context)
+        == "Hello &lt;script&gt;alert('Elliot Alderson')&lt;/script&gt;"
+    )
+
+
+def test_dictionary_reference():
+    assert (
+        socless_template_string("Hello {context.dict}", mock_context)
+        == """Hello {'safe_string': 'Elliot Alderson', 'unsafe_string': "&lt;script&gt;alert('Elliot Alderson')&lt;/script&gt;"}"""
+    )
+
+
+def test_maptostr():
+    assert socless_template_string(
+        "{context.unicodelist|maptostr}", mock_context
+    ) == "{}".format(["hello", "world"])

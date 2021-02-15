@@ -63,16 +63,6 @@ EXPECTED_RESULTS = {
     "nested_ref": {"nester": PARSE_TEST_DATA["artifacts"]["event"]["nested"]},
 }
 
-context = {
-    "safe_string": "Elliot Alderson",
-    "unsafe_string": "<script>alert('Elliot Alderson')</script>",
-    "dict": {
-        "safe_string": "Elliot Alderson",
-        "unsafe_string": "<script>alert('Elliot Alderson')</script>",
-    },
-    "unicodelist": ["hello", "world"],
-}
-
 
 def test_path_pointing_to_string():
     assert (
@@ -160,30 +150,3 @@ def test_socless_fetch_from_vault():
 
 def test_conversion_from_json():
     assert apply_conversion_from('["hello", "world"]', "json") == ["hello", "world"]
-
-
-def test_safe_string():
-    assert (
-        socless_template_string("Hello {context.safe_string}", context)
-        == "Hello Elliot Alderson"
-    )
-
-
-def test_unsafe_string():
-    assert (
-        socless_template_string("Hello {context.unsafe_string}", context)
-        == "Hello &lt;script&gt;alert('Elliot Alderson')&lt;/script&gt;"
-    )
-
-
-def test_dictionary_reference():
-    assert (
-        socless_template_string("Hello {context.dict}", context)
-        == """Hello {'safe_string': 'Elliot Alderson', 'unsafe_string': "&lt;script&gt;alert('Elliot Alderson')&lt;/script&gt;"}"""
-    )
-
-
-def test_maptostr():
-    assert socless_template_string(
-        "{context.unicodelist|maptostr}", context
-    ) == "{}".format(["hello", "world"])
