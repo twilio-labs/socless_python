@@ -42,7 +42,7 @@ class EventCreator:
         else:
             try:
                 datetime.strptime(self.created_at, "%Y-%m-%dT%H:%M:%S.%fZ")
-            except:
+            except Exception:
                 raise Exception(
                     "Error: Supplied 'created_at' field is not ISO8601 millisecond-precision string, shifted to UTC"
                 )
@@ -247,7 +247,7 @@ class EventBatch:
         playbook_input["artifacts"]["event"] = entry
         playbook_input["artifacts"]["execution_id"] = execution_id
         results_table = boto3.resource("dynamodb").Table(RESULTS_TABLE)
-        save_result_resp = results_table.put_item(
+        _ = results_table.put_item(
             Item={
                 "execution_id": execution_id,
                 "datetime": gen_datetimenow(),
@@ -257,7 +257,7 @@ class EventBatch:
         )
         stepfunctions = boto3.client("stepfunctions")
         try:
-            step_resp = stepfunctions.start_execution(
+            _ = stepfunctions.start_execution(
                 name=execution_id,
                 stateMachineArn=playbook_arn,
                 input=json.dumps(

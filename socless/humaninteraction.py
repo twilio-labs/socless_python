@@ -123,7 +123,7 @@ def end_human_interaction(message_id, response_body):
     try:
         execution_context = ExecutionContext(execution_id)
         execution_results = execution_context.fetch_context()["results"]
-    except Exception as e:
+    except Exception:
         socless_log_then_raise("execution_results_not_found")
 
     execution_results["execution_id"] = execution_id

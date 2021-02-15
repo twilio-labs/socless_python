@@ -14,7 +14,7 @@
 """
 Function module - Functions for interacting with boto3 Lambda client
 """
-import boto3, os
+import boto3
 import simplejson as json
 from botocore.exceptions import ClientError
 
