@@ -20,7 +20,8 @@ from .utils import gen_id, gen_datetimenow
 from .integrations import ExecutionContext
 from .logger import socless_log_then_raise
 
-def init_human_interaction(execution_context, message_draft, message_id=''):
+
+def init_human_interaction(execution_context, message_draft, message_id=""):
     """Initialize the human interaction worfklow by saving the Human Interaction Task Token
     to SOCless Message Responses Table
 
@@ -38,27 +39,33 @@ def init_human_interaction(execution_context, message_draft, message_id=''):
     if not message_id:
         message_id = gen_id(6)
 
-    RESPONSE_TABLE = os.environ['SOCLESS_MESSAGE_RESPONSE_TABLE']
-    response_table = boto3.resource('dynamodb').Table(RESPONSE_TABLE)
+    RESPONSE_TABLE = os.environ["SOCLESS_MESSAGE_RESPONSE_TABLE"]
+    response_table = boto3.resource("dynamodb").Table(RESPONSE_TABLE)
     try:
-        investigation_id = execution_context['artifacts']['event']['investigation_id']
-        execution_id = execution_context['execution_id']
-        receiver = execution_context['state_name']
-        task_token = execution_context['task_token']
-        response_table.put_item(Item={
-            "message_id": message_id,
-            "datetime": gen_datetimenow(),
-            "investigation_id": investigation_id,
-            "message": message_draft,
-            "fulfilled": False,
-            "execution_id": execution_id,
-            "receiver": receiver,
-            "await_token": task_token
-            })
+        investigation_id = execution_context["artifacts"]["event"]["investigation_id"]
+        execution_id = execution_context["execution_id"]
+        receiver = execution_context["state_name"]
+        task_token = execution_context["task_token"]
+        response_table.put_item(
+            Item={
+                "message_id": message_id,
+                "datetime": gen_datetimenow(),
+                "investigation_id": investigation_id,
+                "message": message_draft,
+                "fulfilled": False,
+                "execution_id": execution_id,
+                "receiver": receiver,
+                "await_token": task_token,
+            }
+        )
     except KeyError as e:
-        socless_log_then_raise(f"Failed to initialize human response workflow because {e} does not exist in the execution_context.")
+        socless_log_then_raise(
+            f"Failed to initialize human response workflow because {e} does not exist in the execution_context."
+        )
     except Exception as e:
-        socless_log_then_raise(f"Failed to initialize human response workflow because {e}")
+        socless_log_then_raise(
+            f"Failed to initialize human response workflow because {e}"
+        )
     return message_id
 
 
@@ -86,67 +93,71 @@ def end_human_interaction(message_id, response_body):
     """
 
     try:
-        responses_table = boto3.resource('dynamodb').Table(os.environ['SOCLESS_MESSAGE_RESPONSE_TABLE'])
+        responses_table = boto3.resource("dynamodb").Table(
+            os.environ["SOCLESS_MESSAGE_RESPONSE_TABLE"]
+        )
         response = responses_table.get_item(Key={"message_id": message_id})
     except Exception as e:
-        socless_log_then_raise('message_id_query_failed', {'error': f"{e}"})
+        socless_log_then_raise("message_id_query_failed", {"error": f"{e}"})
 
-    item = response.get('Item',{})
+    item = response.get("Item", {})
     if not item:
-        socless_log_then_raise('message_id_not_found')
+        socless_log_then_raise("message_id_not_found")
 
-    token_used  = item.get('fulfilled', False)
+    token_used = item.get("fulfilled", False)
     if token_used:
-        socless_log_then_raise('message_id_used')
+        socless_log_then_raise("message_id_used")
 
-    await_token = item.get('await_token')
+    await_token = item.get("await_token")
     if not await_token:
-        socless_log_then_raise('await_token_not_found')
+        socless_log_then_raise("await_token_not_found")
 
-    execution_id = item.get('execution_id')
+    execution_id = item.get("execution_id")
     if not execution_id:
-        socless_log_then_raise('execution_id_not_found')
+        socless_log_then_raise("execution_id_not_found")
 
-    receiver = item.get('receiver')
+    receiver = item.get("receiver")
     if not receiver:
-        socless_log_then_raise('receiver_not_found')
+        socless_log_then_raise("receiver_not_found")
 
     try:
         execution_context = ExecutionContext(execution_id)
-        execution_results = execution_context.fetch_context()['results']
+        execution_results = execution_context.fetch_context()["results"]
     except Exception as e:
-        socless_log_then_raise('execution_results_not_found')
+        socless_log_then_raise("execution_results_not_found")
 
-
-    execution_results['execution_id'] = execution_id
+    execution_results["execution_id"] = execution_id
     # README: Below code includes state_name with result so that parameters can be passed to choice state in the same way
     # they are passed to integrations (i.e. with $.results.State_Name.parameters)
     # However, it maintain current status quo so that Choice states in current playbooks don't break
     # TODO: Once Choice states in current playbooks have been updated to the new_style, update this code so result's are only nested under state_name
     resp_body_with_state_name = {receiver: response_body}
     resp_body_with_state_name.update(response_body)
-    execution_results['results'] = resp_body_with_state_name
-    stepfunctions = boto3.client('stepfunctions')
-    execution_context.save_state_results(receiver,response_body)
+    execution_results["results"] = resp_body_with_state_name
+    stepfunctions = boto3.client("stepfunctions")
+    execution_context.save_state_results(receiver, response_body)
     try:
-        stepfunctions.send_task_success(taskToken=await_token,output=json.dumps(execution_results))
+        stepfunctions.send_task_success(
+            taskToken=await_token, output=json.dumps(execution_results)
+        )
     except ClientError as e:
-        sfn_error_code = e.response.get('Error',{}).get('Code')
-        if sfn_error_code == 'TaskTimedOut':
-            socless_log_then_raise('response_delivery_timed_out',{'error': f'{e}'})
+        sfn_error_code = e.response.get("Error", {}).get("Code")
+        if sfn_error_code == "TaskTimedOut":
+            socless_log_then_raise("response_delivery_timed_out", {"error": f"{e}"})
         else:
-            socless_log_then_raise('response_delivery_failed', {'error': f"{e}"})
+            socless_log_then_raise("response_delivery_failed", {"error": f"{e}"})
     except Exception as e:
-        socless_log_then_raise('response_delivery_failed', {'error': f"{e}"})
+        socless_log_then_raise("response_delivery_failed", {"error": f"{e}"})
 
     try:
-        responses_table.update_item(Key={"message_id": message_id},
-        UpdateExpression="SET fulfilled = :fulfilled, response_payload = :response_payload",
-        ExpressionAttributeValues={
-            ":fulfilled": True,
-            ":response_payload": response_body
-            }
+        responses_table.update_item(
+            Key={"message_id": message_id},
+            UpdateExpression="SET fulfilled = :fulfilled, response_payload = :response_payload",
+            ExpressionAttributeValues={
+                ":fulfilled": True,
+                ":response_payload": response_body,
+            },
         )
     except Exception as e:
-        socless_log_then_raise('message_status_update_failed', {'error': f"{e}"})
+        socless_log_then_raise("message_status_update_failed", {"error": f"{e}"})
     return

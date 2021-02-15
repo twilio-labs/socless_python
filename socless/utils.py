@@ -19,6 +19,7 @@ from datetime import datetime
 
 __all__ = ["gen_id", "gen_datetimenow", "convert_empty_strings_to_none"]
 
+
 def gen_id(limit=36):
     """Generate an id
 
@@ -38,6 +39,7 @@ def gen_datetimenow():
         string: current timestamp in ISO8601 UTC format
     """
     return datetime.utcnow().isoformat() + "Z"
+
 
 def convert_empty_strings_to_none(nested_dict):
     converted_dict = {}

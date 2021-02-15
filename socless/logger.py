@@ -17,59 +17,57 @@ Logging library
 from datetime import datetime
 import os, inspect, simplejson as json
 
+
 class socless_log:
-    ERROR = 'ERROR'
-    INFO =  'INFO'
-    WARN = WARNING = 'WARN'
-    DEBUG = 'DEBUG'
-    CRITICAL = 'CRITICAL'
+    ERROR = "ERROR"
+    INFO = "INFO"
+    WARN = WARNING = "WARN"
+    DEBUG = "DEBUG"
+    CRITICAL = "CRITICAL"
 
     @classmethod
-    def __log(cls,level,message,extra={}):
+    def __log(cls, level, message, extra={}):
         """
         Writes a log message
         """
         if not message:
             raise ValueError("Message must be provided")
 
-        if not isinstance(extra,dict):
+        if not isinstance(extra, dict):
             raise ValueError("Extra must be a dictionary")
         payload = {
             "context": {
                 "time": "{}Z".format(datetime.utcnow().isoformat()),
-                "aws_region": os.environ.get('AWS_REGION',''),
-                "function_name": os.environ.get('AWS_LAMBDA_FUNCTION_NAME',''),
-                "execution_env": os.environ.get('AWS_EXECUTION_ENV',''),
-                "memory_size": os.environ.get('AWS_LAMBDA_FUNCTION_MEMORY_SIZE',''),
-                "function_version": os.environ.get('AWS_LAMBDA_FUNCTION_VERSION',''),
-                "function_log_group": os.environ.get('AWS_LAMBDA_LOG_GROUP_NAME',''),
+                "aws_region": os.environ.get("AWS_REGION", ""),
+                "function_name": os.environ.get("AWS_LAMBDA_FUNCTION_NAME", ""),
+                "execution_env": os.environ.get("AWS_EXECUTION_ENV", ""),
+                "memory_size": os.environ.get("AWS_LAMBDA_FUNCTION_MEMORY_SIZE", ""),
+                "function_version": os.environ.get("AWS_LAMBDA_FUNCTION_VERSION", ""),
+                "function_log_group": os.environ.get("AWS_LAMBDA_LOG_GROUP_NAME", ""),
                 "source": "Socless",
                 "level": level,
-                "lineno": inspect.currentframe().f_back.f_back.f_lineno
+                "lineno": inspect.currentframe().f_back.f_back.f_lineno,
             },
-            "body":{
-                "message": message,
-                "extra": extra
-            }
+            "body": {"message": message, "extra": extra},
         }
         return json.dumps(payload)
 
     @classmethod
-    def info(self,message,extra={}):
+    def info(self, message, extra={}):
         """
         Write a log message with level info
         """
-        print((self.__log(self.INFO,message,extra)))
+        print((self.__log(self.INFO, message, extra)))
 
     @classmethod
-    def error(self,message,extra={}):
+    def error(self, message, extra={}):
         """
         Write an error message
         """
-        print((self.__log(self.ERROR, message,extra)))
+        print((self.__log(self.ERROR, message, extra)))
 
     @classmethod
-    def debug(self,message,extra={}):
+    def debug(self, message, extra={}):
         """
         Write a debug message
         """

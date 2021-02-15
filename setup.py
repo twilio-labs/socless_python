@@ -15,18 +15,17 @@ from setuptools import setup, find_packages
 
 
 setup(
-    name='socless',
-    version='1.5.0',
-    description='Socless core library',
-    author='Ubani Balogun',
+    name="socless",
+    version="1.5.0",
+    description="Socless core library",
+    author="Ubani Balogun",
     classifiers=[
-        'Intended Audience :: Developers :: Security',
-        'Topic :: Security Orchestration :: Security Automation',
-        'Programming Language :: Python :: 3.7',
+        "Intended Audience :: Developers :: Security",
+        "Topic :: Security Orchestration :: Security Automation",
+        "Programming Language :: Python :: 3.7",
     ],
-
-    keywords='socless security orchestration automation',
-    packages=['socless'],
-    install_requires=['simplejson', 'jinja2'],
-    tests_require=['tox']
+    keywords="socless security orchestration automation",
+    packages=["socless"],
+    install_requires=["simplejson", "jinja2"],
+    tests_require=["tox"],
 )

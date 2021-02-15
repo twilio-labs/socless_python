@@ -19,12 +19,13 @@ from jinja2 import Environment, select_autoescape
 
 # Jinja Environment Configuration
 jinja_env = Environment(
-    autoescape=select_autoescape(['html','xml']),
+    autoescape=select_autoescape(["html", "xml"]),
     variable_start_string="{",
-    variable_end_string="}"
+    variable_end_string="}",
 )
 
 # Define Custom Filters
+
 
 def maptostr(target_list):
     """Casts a list of python types to a list of strings
@@ -35,10 +36,9 @@ def maptostr(target_list):
     """
     return [str(each) for each in target_list]
 
+
 # Add Custom Filters
-custom_filters = {
-    'maptostr': maptostr
-}
+custom_filters = {"maptostr": maptostr}
 
 # Register Custom Filters
 jinja_env.filters.update(custom_filters)
