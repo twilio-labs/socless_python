@@ -13,10 +13,11 @@
 # limitations under the License
 import boto3, pytest, os
 from tests.conftest import *  #imports testing boilerplate
-from socless.integrations import ParameterResolver, StateHandler, ExecutionContext, socless_template_string
+from socless.integrations import ParameterResolver, StateHandler, ExecutionContext
 from socless.utils import gen_id
 from socless.exceptions import SoclessBootstrapError
 from .helpers import mock_integration_handler, mock_integration_handler_return_string, MockLambdaContext, mock_sfn_db_context, mock_execution_results_table_entry
+from socless import socless_template_string
 
 
 @pytest.fixture()
