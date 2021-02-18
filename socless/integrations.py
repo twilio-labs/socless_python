@@ -21,6 +21,7 @@ from .vault import fetch_from_vault
 from .utils import convert_empty_strings_to_none
 from .exceptions import SoclessException, SoclessBootstrapError
 from .aws_classes import LambdaContext
+from .jinja import jinja_env
 
 VAULT_TOKEN = "vault:"
 PATH_TOKEN = "$."
@@ -99,18 +100,14 @@ class ParameterResolver:
             else:
                 return reference_path
 
-        if not (
-            reference_path.startswith(VAULT_TOKEN)
-            or reference_path.startswith(PATH_TOKEN)
-        ):
-            return reference_path
-
-        reference, _, conversion = reference_path.partition(CONVERSION_TOKEN)
-
-        if reference.startswith(PATH_TOKEN):
+        if reference_path.startswith(PATH_TOKEN):
+            reference, _, conversion = reference_path.partition(CONVERSION_TOKEN)
             resolved = self.resolve_jsonpath(reference)
-        elif reference.startswith(VAULT_TOKEN):
+        elif reference_path.startswith(VAULT_TOKEN):
+            reference, _, conversion = reference_path.partition(CONVERSION_TOKEN)
             resolved = self.resolve_vault_path(reference)
+        else:
+            return reference_path
 
         if conversion:
             resolved = self.apply_conversion_from(resolved, conversion)
@@ -321,3 +318,17 @@ def socless_bootstrap(
     result_with_state_name.update(result)
     event["results"] = result_with_state_name
     return event
+
+
+def socless_template_string(message, context):
+    """Render a templated string
+
+    Args:
+        message (str): The templated string to render
+        context (dict): The template parameters
+
+    Returns:
+        str: The rendered template
+    """
+    template = jinja_env.from_string(message)
+    return template.render(context=context).replace("&#34;", '"').replace("&#39;", "'")
