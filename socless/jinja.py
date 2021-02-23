@@ -14,14 +14,23 @@
 """
 Code for Jinja2 which Socless uses for templating strings
 """
-from jinja2 import Environment, select_autoescape
+from typing import Any, Dict
+import json
+from jinja2.nativetypes import NativeEnvironment
+from jinja2 import select_autoescape, StrictUndefined
+from .vault import fetch_from_vault
 
 
 # Jinja Environment Configuration
-jinja_env = Environment(
+jinja_env = NativeEnvironment(
     autoescape=select_autoescape(["html", "xml"]),
-    variable_start_string="{",
-    variable_end_string="}",
+    variable_start_string="{",  # this defines the start tokens for a jinja template
+    variable_end_string="}",  # this is the end token for a jinja template
+    undefined=StrictUndefined,  # This configures Jinjas behaviour when a template user provides an undefined reference
+    ### StrictUndefined here ensures that if the user references something that
+    # Doesn't actually exist in the context, an error is raised
+    # Without StrictUndefined, invalid references fail silently
+    # More on undefined types here https://jinja.palletsprojects.com/en/2.11.x/api/#undefined-types
 )
 
 # Define Custom Filters
@@ -35,6 +44,20 @@ def maptostr(target_list):
         List containing strings
     """
     return [str(each) for each in target_list]
+
+
+def vault(vault_id: str):
+    # A custom jinja Function which returns the content of a socless vault
+    # we expect it to be called as {vault( context.vault_id) }  and return the same value
+    # that current vault:vault-id would return
+    # Essentially a recreation of
+    return fetch_from_vault(vault_id, content_only=True)
+
+
+def fromjson(string_json: str) -> Any[Dict, str, int, bool]:
+    # This is a custom jinja Filter which expects stringified json and returns
+    # the output of calling json.loads on it.
+    return json.loads(string_json)
 
 
 # Add Custom Filters

@@ -43,7 +43,7 @@ class ParameterResolver:
         Returns:
             The referenced element. May be any Python built-in type
         """
-        _pre, _sep, post = path.partition(PATH_TOKEN)
+        _, _, post = path.partition(PATH_TOKEN)
         keys = post.split(".")
         obj_copy = self.root_obj.copy()
         for key in keys:
@@ -54,7 +54,8 @@ class ParameterResolver:
                     f"Unable to resolve key {key}, parent object does not exist. Full path: {path}"
                 )
             if isinstance(value, str) and value.startswith(VAULT_TOKEN):
-                actual = self.resolve_vault_path(value)
+                _, _, file_id = value.partition(VAULT_TOKEN)
+                actual = fetch_from_vault(file_id, content_only=True)
             else:
                 actual = value
             obj_copy = actual
@@ -72,7 +73,7 @@ class ParameterResolver:
         Returns:
             str: The content of the referenced Vault object
         """
-        _, __, file_id = path.partition(VAULT_TOKEN)
+        _, _, file_id = path.partition(VAULT_TOKEN)
         data = fetch_from_vault(file_id, content_only=True)
         return data
 
@@ -105,7 +106,8 @@ class ParameterResolver:
             resolved = self.resolve_jsonpath(reference)
         elif reference_path.startswith(VAULT_TOKEN):
             reference, _, conversion = reference_path.partition(CONVERSION_TOKEN)
-            resolved = self.resolve_vault_path(reference)
+            _, _, file_id = reference.partition(VAULT_TOKEN)
+            resolved = fetch_from_vault(file_id, content_only=True)
         else:
             return reference_path
 
@@ -139,6 +141,8 @@ class ParameterResolver:
         """
         if conversion == "json":
             return json.loads(data)
+        else:
+            raise NotImplementedError("Conversion only supports 'json'")
 
 
 class ExecutionContext:
