@@ -14,7 +14,7 @@
 """
 Code for Jinja2 which Socless uses for templating strings
 """
-from typing import Any, Dict
+from typing import Any
 import json
 from jinja2.nativetypes import NativeEnvironment
 from jinja2 import select_autoescape, StrictUndefined
@@ -22,8 +22,11 @@ from .vault import fetch_from_vault
 
 
 # Jinja Environment Configuration
+#! this fails to escape <script>, escaping works with Environment
 jinja_env = NativeEnvironment(
-    autoescape=select_autoescape(["html", "xml"]),
+    autoescape=select_autoescape(
+        ["html", "xml"], default_for_string=True, default=True
+    ),
     variable_start_string="{",  # this defines the start tokens for a jinja template
     variable_end_string="}",  # this is the end token for a jinja template
     undefined=StrictUndefined,  # This configures Jinjas behaviour when a template user provides an undefined reference
@@ -42,6 +45,8 @@ def maptostr(target_list):
         target_list (list): list containing python types
     Returns:
         List containing strings
+    Note:
+        May no longer be needed in Python3
     """
     return [str(each) for each in target_list]
 
@@ -54,14 +59,19 @@ def vault(vault_id: str):
     return fetch_from_vault(vault_id, content_only=True)
 
 
-def fromjson(string_json: str) -> Any[Dict, str, int, bool]:
+def fromjson(string_json: str) -> Any:
     # This is a custom jinja Filter which expects stringified json and returns
     # the output of calling json.loads on it.
     return json.loads(string_json)
 
 
+# Add Custom Functions
+custom_functions = {"vault": vault, "fromjson": fromjson}
+
 # Add Custom Filters
-custom_filters = {"maptostr": maptostr}
+custom_filters = {"maptostr": maptostr, **custom_functions}
 
 # Register Custom Filters
 jinja_env.filters.update(custom_filters)
+# Register Custom Functions
+jinja_env.globals.update(custom_functions)

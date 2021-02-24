@@ -335,4 +335,9 @@ def socless_template_string(message, context):
         str: The rendered template
     """
     template = jinja_env.from_string(message)
-    return template.render(context=context).replace("&#34;", '"').replace("&#39;", "'")
+
+    return (
+        str(template.render(context=context))
+        .replace("&#34;", '"')
+        .replace("&#39;", "'")
+    )

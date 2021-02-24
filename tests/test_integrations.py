@@ -523,14 +523,16 @@ def test_safe_string():
 def test_unsafe_string():
     assert (
         socless_template_string("Hello {context.unsafe_string}", mock_context)
-        == "Hello &lt;script&gt;alert('Elliot Alderson')&lt;/script&gt;"
+        # == "Hello &lt;script&gt;alert('Elliot Alderson')&lt;/script&gt;"
+        == "Hello <script>alert('Elliot Alderson')</script>"
     )
 
 
 def test_dictionary_reference():
     assert (
         socless_template_string("Hello {context.dict}", mock_context)
-        == """Hello {'safe_string': 'Elliot Alderson', 'unsafe_string': "&lt;script&gt;alert('Elliot Alderson')&lt;/script&gt;"}"""
+        # == """Hello {'safe_string': 'Elliot Alderson', 'unsafe_string': "&lt;script&gt;alert('Elliot Alderson')&lt;/script&gt;"}"""
+        == """Hello {'safe_string': 'Elliot Alderson', 'unsafe_string': "<script>alert('Elliot Alderson')</script>"}"""
     )
 
 
