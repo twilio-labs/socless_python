@@ -27,6 +27,7 @@ from .jinja import jinja_env
 VAULT_TOKEN = "vault:"
 PATH_TOKEN = "$."
 CONVERSION_TOKEN = "!"
+vault_pattern = re.compile(r"(vault:)(\S+(?=\s|$))(.*)")
 
 
 class ParameterResolver:
@@ -181,8 +182,7 @@ def convert_legacy_reference_to_template(reference_path: str):
             needs_brackets = True
             template = template.replace("$.", "context.")
 
-        pattern = r"(vault:)(\S+(?=\s|$))(.*)"
-        vault_matches = re.search(pattern, template)
+        vault_matches = re.search(vault_pattern, template)
         if vault_matches:
             needs_brackets = True
             template = f"vault('{vault_matches.group(2)}') {vault_matches.group(3)}"
