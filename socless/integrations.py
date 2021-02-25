@@ -15,7 +15,8 @@
 Classes and modules for Integrations
 """
 import boto3, simplejson as json, os
-from typing import Callable
+import re
+from typing import Any, Callable
 from .logger import socless_log
 from .vault import fetch_from_vault
 from .utils import convert_empty_strings_to_none
@@ -87,19 +88,24 @@ class ParameterResolver:
             The resulting value. May be any Python built-in type
         """
 
-        if not isinstance(reference_path, str):
-            if isinstance(reference_path, dict):
-                resolved_dict = {}
-                for key, value in list(reference_path.items()):
-                    resolved_dict[key] = self.resolve_reference(value)
-                return resolved_dict
-            elif isinstance(reference_path, list):
-                resolved_list = []
-                for item in reference_path:
-                    resolved_list.append(self.resolve_reference(item))
-                return resolved_list
-            else:
-                return reference_path
+        if isinstance(reference_path, str):
+            backwards_compatible = convert_legacy_reference_to_template(reference_path)
+            return resolve_template(
+                template_string=backwards_compatible,
+                root_object=self.root_obj,
+            )
+        elif isinstance(reference_path, dict):
+            resolved_dict = {}
+            for key, value in list(reference_path.items()):
+                resolved_dict[key] = self.resolve_reference(value)
+            return resolved_dict
+        elif isinstance(reference_path, list):
+            resolved_list = []
+            for item in reference_path:
+                resolved_list.append(self.resolve_reference(item))
+            return resolved_list
+        else:
+            return reference_path
 
         if reference_path.startswith(PATH_TOKEN):
             reference, _, conversion = reference_path.partition(CONVERSION_TOKEN)
@@ -143,6 +149,52 @@ class ParameterResolver:
             return json.loads(data)
         else:
             raise NotImplementedError("Conversion only supports 'json'")
+
+
+def resolve_template(template_string: str, root_object: dict) -> Any:
+    template = jinja_env.from_string(template_string)
+
+    rendered = template.render(context=root_object)
+    if isinstance(rendered, str):
+        rendered = rendered.replace("&#34;", '"').replace("&#39;", "'")
+    return rendered
+
+
+def convert_legacy_reference_to_template(reference_path: str):
+    """Allow backwards compatibility for legacy socless parameter reference to jinja templates.
+    `resolve_template` jinja translation is supported by this function that converts
+    legacy references to valid jinja templates according to the table below:
+
+        Legacy Reference   | Converted Jinja template
+        ----------------   | ------------------------
+        “$.<ref_path>”     |  “{context.<ref_path>}”
+        “vault:<vault-id>” |  “vault-id | fromvault}”
+        "<something>!json" |  "{<something> | fromjson}"
+    """
+    try:
+        needs_brackets = False
+        template = reference_path
+        if template.endswith("!json"):
+            needs_brackets = True
+            template = template.replace("!json", " |fromjson")
+        if template.startswith(PATH_TOKEN):
+            needs_brackets = True
+            template = template.replace("$.", "context.")
+
+        pattern = r"(vault:)(\S+(?=\s|$))(.*)"
+        vault_matches = re.search(pattern, template)
+        if vault_matches:
+            needs_brackets = True
+            template = f"vault('{vault_matches.group(2)}') {vault_matches.group(3)}"
+
+        if needs_brackets:
+            template = "{" + template + "}"
+
+        return template
+    except (TypeError, KeyError) as e:
+        raise SoclessException(
+            f"Unable to convert reference type {type(reference_path)} to template - {e}"
+        )
 
 
 class ExecutionContext:
@@ -277,8 +329,10 @@ from outside of a SOCless playbook. Running this lambda in test mode."
 
     def execute(self):
         """Execute the integration to fulfil the assigned state"""
+
         resolver = ParameterResolver(self.context)
         actual_params = resolver.resolve_parameters(self.state_parameters)
+
         if self.include_event:
             result = self.integration_handler(self.context, **actual_params)
         else:
@@ -334,10 +388,5 @@ def socless_template_string(message, context):
     Returns:
         str: The rendered template
     """
-    template = jinja_env.from_string(message)
-
-    return (
-        str(template.render(context=context))
-        .replace("&#34;", '"')
-        .replace("&#39;", "'")
-    )
+    resolved = resolve_template(message, context)
+    return str(resolved)
