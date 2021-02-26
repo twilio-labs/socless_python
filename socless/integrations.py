@@ -15,7 +15,6 @@
 Classes and modules for Integrations
 """
 import boto3, simplejson as json, os
-import re
 from typing import Any, Callable
 from .logger import socless_log
 from .vault import fetch_from_vault
@@ -27,7 +26,6 @@ from .jinja import jinja_env
 VAULT_TOKEN = "vault:"
 PATH_TOKEN = "$."
 CONVERSION_TOKEN = "!"
-vault_pattern = re.compile(r"(vault:)(\S+(?=\s|$))(.*)")
 
 
 class ParameterResolver:
@@ -173,24 +171,22 @@ def convert_legacy_reference_to_template(reference_path: str):
         "<something>!json" |  "{<something> | fromjson}"
     """
     try:
-        needs_brackets = False
         template = reference_path
-        if template.endswith("!json"):
-            needs_brackets = True
-            template = template.replace("!json", " |fromjson")
+
         if template.startswith(PATH_TOKEN):
-            needs_brackets = True
-            template = template.replace("$.", "context.")
+            reference, _, conversion = template.partition(CONVERSION_TOKEN)
+            template = f"context{template[1:]}"
+        elif template.startswith(VAULT_TOKEN):
+            reference, _, conversion = template.partition(CONVERSION_TOKEN)
+            _, _, file_id = reference.partition(VAULT_TOKEN)
+            template = f"vault('{file_id}')"
+        else:
+            return template
 
-        vault_matches = re.search(vault_pattern, template)
-        if vault_matches:
-            needs_brackets = True
-            template = f"vault('{vault_matches.group(2)}') {vault_matches.group(3)}"
+        if conversion:
+            template = template + " |fromjson"
 
-        if needs_brackets:
-            template = "{" + template + "}"
-
-        return template
+        return "{" + template + "}"
     except (TypeError, KeyError) as e:
         raise SoclessException(
             f"Unable to convert reference type {type(reference_path)} to template - {e}"
