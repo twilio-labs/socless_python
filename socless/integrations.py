@@ -106,20 +106,6 @@ class ParameterResolver:
         else:
             return reference_path
 
-        if reference_path.startswith(PATH_TOKEN):
-            reference, _, conversion = reference_path.partition(CONVERSION_TOKEN)
-            resolved = self.resolve_jsonpath(reference)
-        elif reference_path.startswith(VAULT_TOKEN):
-            reference, _, conversion = reference_path.partition(CONVERSION_TOKEN)
-            _, _, file_id = reference.partition(VAULT_TOKEN)
-            resolved = fetch_from_vault(file_id, content_only=True)
-        else:
-            return reference_path
-
-        if conversion:
-            resolved = self.apply_conversion_from(resolved, conversion)
-        return resolved
-
     def resolve_parameters(self, parameters):
         """Resolve a set of parameter references to their actual vaules
 
