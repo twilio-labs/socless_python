@@ -55,7 +55,6 @@ def vault(vault_id: str):
     # A custom jinja Function which returns the content of a socless vault
     # we expect it to be called as {vault( context.vault_id) }  and return the same value
     # that current vault:vault-id would return
-    # Essentially a recreation of
     return fetch_from_vault(vault_id, content_only=True)
 
 
@@ -75,3 +74,8 @@ custom_filters = {"maptostr": maptostr, **custom_functions}
 jinja_env.filters.update(custom_filters)
 # Register Custom Functions
 jinja_env.globals.update(custom_functions)
+
+
+def render_jinja_from_string(template_string: str, root_object: dict) -> Any:
+    template_obj = jinja_env.from_string(template_string)
+    return template_obj.render(context=root_object)

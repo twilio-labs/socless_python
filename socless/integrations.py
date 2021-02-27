@@ -14,14 +14,13 @@
 """
 Classes and modules for Integrations
 """
-import boto3, simplejson as json, os
+import boto3, os
 from typing import Any, Callable
 from .logger import socless_log
-from .vault import fetch_from_vault
 from .utils import convert_empty_strings_to_none
 from .exceptions import SoclessException, SoclessBootstrapError
 from .aws_classes import LambdaContext
-from .jinja import jinja_env
+from .jinja import render_jinja_from_string
 
 VAULT_TOKEN = "vault:"
 PATH_TOKEN = "$."
@@ -34,52 +33,8 @@ class ParameterResolver:
     def __init__(self, root_obj):
         self.root_obj = root_obj
 
-    def resolve_jsonpath(self, path):
-        """Resolves a JsonPath reference to the actual value referenced.
-        Does not support the full JsonPath specification
-
-        Args:
-            path: The JsonPath reference e.g. $.artifacts.investigation_id
-        Returns:
-            The referenced element. May be any Python built-in type
-        """
-        _, _, post = path.partition(PATH_TOKEN)
-        keys = post.split(".")
-        obj_copy = self.root_obj.copy()
-        for key in keys:
-            try:
-                value = obj_copy.get(key)
-            except AttributeError:
-                raise SoclessException(
-                    f"Unable to resolve key {key}, parent object does not exist. Full path: {path}"
-                )
-            if isinstance(value, str) and value.startswith(VAULT_TOKEN):
-                _, _, file_id = value.partition(VAULT_TOKEN)
-                actual = fetch_from_vault(file_id, content_only=True)
-            else:
-                actual = value
-            obj_copy = actual
-        return obj_copy
-
-    def resolve_vault_path(self, path):
-        """Resolves a vault reference to the actual vault file content
-
-        This handles vault references e.g `vault:file_name` that are passed
-        in as parameters to Socless integrations. It fetches and returns the content
-        of the Vault object with name `file_name` in the vault.
-
-        Args:
-            path (str): The vault reference
-        Returns:
-            str: The content of the referenced Vault object
-        """
-        _, _, file_id = path.partition(VAULT_TOKEN)
-        data = fetch_from_vault(file_id, content_only=True)
-        return data
-
     def resolve_reference(self, reference_path):
         """Evaluate a reference path and return the referenced value
-
         Args:
             reference_path: The reference to evaluate may be any Python
                 built-in type
@@ -88,11 +43,7 @@ class ParameterResolver:
         """
 
         if isinstance(reference_path, str):
-            backwards_compatible = convert_legacy_reference_to_template(reference_path)
-            return resolve_template(
-                template_string=backwards_compatible,
-                root_object=self.root_obj,
-            )
+            return resolve_string_parameter(reference_path, self.root_obj)
         elif isinstance(reference_path, dict):
             resolved_dict = {}
             for key, value in list(reference_path.items()):
@@ -108,46 +59,29 @@ class ParameterResolver:
 
     def resolve_parameters(self, parameters):
         """Resolve a set of parameter references to their actual vaules
-
         Args:
             parameters (dict): Parameter references to resolve
         Returns:
             a dictionary containing resolved parameter references
         """
         actual_params = {}
-        for parameter, reference in list(parameters.items()):
+        for parameter, reference in parameters.items():
             actual_params[parameter] = self.resolve_reference(reference)
         return actual_params
 
-    def apply_conversion_from(self, data, conversion):
-        """Convert the data type of a parameter
 
-        Handles conversion of the datatype of a parameter intended for an integration
-
-        Args:
-            data (str): The data to convert
-            conversion (str): The conversion to apply
-        Returns:
-            str: The converted data
-        """
-        if conversion == "json":
-            return json.loads(data)
-        else:
-            raise NotImplementedError("Conversion only supports 'json'")
+def convert_deprecated_vault_to_template(vault_reference) -> str:
+    reference, _, conversion = vault_reference.partition(CONVERSION_TOKEN)
+    _, _, file_id = reference.partition(VAULT_TOKEN)
+    template = f"vault('{file_id}')"
+    if conversion:
+        template = template + " |fromjson"
+    return "{" + template + "}"
 
 
-def resolve_template(template_string: str, root_object: dict) -> Any:
-    template = jinja_env.from_string(template_string)
-
-    rendered = template.render(context=root_object)
-    if isinstance(rendered, str):
-        rendered = rendered.replace("&#34;", '"').replace("&#39;", "'")
-    return rendered
-
-
-def convert_legacy_reference_to_template(reference_path: str):
+def convert_legacy_reference_to_template(reference_path: str) -> str:
     """Allow backwards compatibility for legacy socless parameter reference to jinja templates.
-    `resolve_template` jinja translation is supported by this function that converts
+    `render_jinja_template` jinja translation is supported by this function that converts
     legacy references to valid jinja templates according to the table below:
 
         Legacy Reference   | Converted Jinja template
@@ -160,23 +94,33 @@ def convert_legacy_reference_to_template(reference_path: str):
         template = reference_path
 
         if template.startswith(PATH_TOKEN):
-            reference, _, conversion = template.partition(CONVERSION_TOKEN)
+            _, _, conversion = template.partition(CONVERSION_TOKEN)
             template = f"context{template[1:]}"
+            if conversion:
+                template = template + " |fromjson"
+            template = "{" + template + "}"
         elif template.startswith(VAULT_TOKEN):
-            reference, _, conversion = template.partition(CONVERSION_TOKEN)
-            _, _, file_id = reference.partition(VAULT_TOKEN)
-            template = f"vault('{file_id}')"
-        else:
-            return template
+            template = convert_deprecated_vault_to_template(template)
 
-        if conversion:
-            template = template + " |fromjson"
-
-        return "{" + template + "}"
+        return template
     except (TypeError, KeyError) as e:
         raise SoclessException(
             f"Unable to convert reference type {type(reference_path)} to template - {e}"
         )
+
+
+def resolve_string_parameter(parameter: str, root_object: dict) -> Any:
+    template = convert_legacy_reference_to_template(parameter)
+    resolved = render_jinja_from_string(template, root_object)
+    if isinstance(resolved, str):
+        # if jsonpath renders into something with a vault_token, it needs to run through jinja again
+        if resolved.startswith(VAULT_TOKEN):
+            new_template_string = convert_deprecated_vault_to_template(resolved)
+            return render_jinja_from_string(new_template_string, root_object)
+
+        ## autoescaping is currently disabled, this line may not be necessary
+        # resolved = resolved.replace("&#34;", '"').replace("&#39;", "'")
+    return resolved
 
 
 class ExecutionContext:
@@ -370,5 +314,5 @@ def socless_template_string(message, context):
     Returns:
         str: The rendered template
     """
-    resolved = resolve_template(message, context)
+    resolved = render_jinja_from_string(message, context)
     return str(resolved)

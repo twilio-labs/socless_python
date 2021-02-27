@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 import boto3, pytest, os
-from tests.conftest import *  #imports testing boilerplate
-from socless.integrations import ParameterResolver, StateHandler, ExecutionContext
+from tests.conftest import *  # imports testing boilerplate
+from socless.integrations import ParameterResolver, StateHandler, ExecutionContext, resolve_string_parameter
 from socless.utils import gen_id
 from socless.exceptions import SoclessBootstrapError
 from .helpers import mock_integration_handler, mock_integration_handler_return_string, MockLambdaContext, mock_sfn_db_context, mock_execution_results_table_entry
@@ -44,19 +44,29 @@ def TestParamResolver(root_obj):
     return ParameterResolver(root_obj)
 
 
-def test_ParameterResolver_resolve_jsonpath(TestParamResolver, root_obj):
-    # assert resolve_json_path works as expected by comparing it with root_obj
-    assert TestParamResolver.resolve_jsonpath("$.artifacts.event.details.firstname") == root_obj['artifacts']['event']['details']['firstname']
+def test_resolve_jsonpath(root_obj):
+    resolved = resolve_string_parameter("$.artifacts.event.details.firstname", root_obj)
+    assert resolved == root_obj['artifacts']['event']['details']['firstname']
 
 
-def test_ParameterResolver_resolve_jsonpath_vault_token(TestParamResolver, root_obj):
-    # assert resolve_json_path works as expected with vault token by comparing it with root_obj
-    assert TestParamResolver.resolve_jsonpath("$.artifacts.event.details.vault_test") == "this came from the vault"
+def test_resolve_jsonpath_vault_token(root_obj):
+    resolved = resolve_string_parameter("$.artifacts.event.details.vault_test", root_obj)
+    assert resolved == "this came from the vault"
 
 
-def test_ParameterResolver_resolve_vault_path(TestParamResolver):
-    # test resolve_vault path
-    assert TestParamResolver.resolve_vault_path("vault:socless_vault_tests.txt") == "this came from the vault"
+def test_resolve_vault_path():
+    resolved = resolve_string_parameter("vault:socless_vault_tests.txt", {})
+    assert resolved == "this came from the vault"
+
+
+def test_resolve_template_with_conversion():
+    resolved = resolve_string_parameter("vault:socless_vault_tests.json!json", {})
+    assert resolved == {'hello': 'world'}
+
+
+def test_resolve_template_preformatted_fromjson():
+    resolved = resolve_string_parameter("""{ '{"foo": "bar"}' |fromjson}""", {})
+    assert resolved == {'foo' : 'bar'}
 
 
 def test_ParameterResolver_resolve_reference(TestParamResolver):
@@ -90,11 +100,6 @@ def test_ParameterResolver_resolve_parameters(TestParamResolver):
         ]
     }
     assert TestParamResolver.resolve_parameters(parameters) == {"firstname": "Sterling", "lastname": "Archer", "middlename": "Malory", "vault.txt": "this came from the vault", "vault.json": {'hello': 'world'}, "acquaintances": [{"firstname": "Malory", "lastname": "Archer"}]}
-
-
-def test_ParameterResolver_apply_conversion_from(TestParamResolver):
-    # Test convert from json
-    assert TestParamResolver.apply_conversion_from('{"text":"hello"}', "json") == {"text" : "hello"}
 
 
 def test_ExecutionContext_init():
