@@ -102,6 +102,12 @@ def test_ParameterResolver_resolve_parameters(TestParamResolver):
     assert TestParamResolver.resolve_parameters(parameters) == {"firstname": "Sterling", "lastname": "Archer", "middlename": "Malory", "vault.txt": "this came from the vault", "vault.json": {'hello': 'world'}, "acquaintances": [{"firstname": "Malory", "lastname": "Archer"}]}
 
 
+def test_ParameterResolver_resolve_strings_with_invalid_jinja(TestParamResolver):
+    # Test with string value
+    test_string = "something {with something else.} and another thing."
+    assert TestParamResolver.resolve_reference(test_string) == test_string
+
+
 def test_ExecutionContext_init():
     # test ExecutionContext init to assert the execution_id is the same one as expected
     execution_id = gen_id()

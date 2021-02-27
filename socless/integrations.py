@@ -21,6 +21,7 @@ from .utils import convert_empty_strings_to_none
 from .exceptions import SoclessException, SoclessBootstrapError
 from .aws_classes import LambdaContext
 from .jinja import render_jinja_from_string
+from jinja2.exceptions import TemplateSyntaxError
 
 VAULT_TOKEN = "vault:"
 PATH_TOKEN = "$."
@@ -111,15 +112,19 @@ def convert_legacy_reference_to_template(reference_path: str) -> str:
 
 def resolve_string_parameter(parameter: str, root_object: dict) -> Any:
     template = convert_legacy_reference_to_template(parameter)
-    resolved = render_jinja_from_string(template, root_object)
-    if isinstance(resolved, str):
-        # if jsonpath renders into something with a vault_token, it needs to run through jinja again
-        if resolved.startswith(VAULT_TOKEN):
-            new_template_string = convert_deprecated_vault_to_template(resolved)
-            return render_jinja_from_string(new_template_string, root_object)
+    try:
+        resolved = render_jinja_from_string(template, root_object)
+        if isinstance(resolved, str):
+            # if jsonpath renders into something with a vault_token, it needs to run through jinja again
+            if resolved.startswith(VAULT_TOKEN):
+                new_template_string = convert_deprecated_vault_to_template(resolved)
+                return render_jinja_from_string(new_template_string, root_object)
 
-        ## autoescaping is currently disabled, this line may not be necessary
-        # resolved = resolved.replace("&#34;", '"').replace("&#39;", "'")
+            ## autoescaping is currently disabled, this line may not be necessary
+            # resolved = resolved.replace("&#34;", '"').replace("&#39;", "'")
+    except TemplateSyntaxError as e:
+        print(f"Invalid jinja template error {e} | for template: {template}")
+        return template
     return resolved
 
 
