@@ -69,6 +69,11 @@ def test_resolve_template_preformatted_fromjson():
     assert resolved == {'foo' : 'bar'}
 
 
+def test_resolve_template_preformatted_fromjson_invalid_json():
+    with pytest.raises(SoclessBootstrapError):
+        resolve_string_parameter("""{ '{"foo": "bar" : bas}' |fromjson}""", {})
+
+
 def test_ParameterResolver_resolve_reference(TestParamResolver):
     # Test with string value
     assert TestParamResolver.resolve_reference("Hello") == "Hello"

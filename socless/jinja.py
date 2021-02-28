@@ -14,6 +14,7 @@
 """
 Code for Jinja2 which Socless uses for templating strings
 """
+from socless.exceptions import SoclessBootstrapError
 from typing import Any
 import json
 from jinja2.nativetypes import NativeEnvironment
@@ -61,7 +62,12 @@ def vault(vault_id: str):
 def fromjson(string_json: str) -> Any:
     # This is a custom jinja Filter which expects stringified json and returns
     # the output of calling json.loads on it.
-    return json.loads(string_json)
+    try:
+        return json.loads(string_json)
+    except json.decoder.JSONDecodeError as e:
+        raise SoclessBootstrapError(
+            f"JSONDecodeError in `fromjson` Jinja filter/function. Error: {e} |\n String: {string_json}"
+        )
 
 
 # Add Custom Functions
