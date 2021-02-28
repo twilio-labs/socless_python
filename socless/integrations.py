@@ -71,13 +71,19 @@ class ParameterResolver:
         return actual_params
 
 
+def add_brackets_and_conditionally_add_fromjson(
+    template: str, should_add_fromjson: bool
+):
+    if should_add_fromjson:
+        template = template + " |fromjson"
+    return "{" + template + "}"
+
+
 def convert_deprecated_vault_to_template(vault_reference) -> str:
     reference, _, conversion = vault_reference.partition(CONVERSION_TOKEN)
     _, _, file_id = reference.partition(VAULT_TOKEN)
     template = f"vault('{file_id}')"
-    if conversion:
-        template = template + " |fromjson"
-    return "{" + template + "}"
+    return add_brackets_and_conditionally_add_fromjson(template, bool(conversion))
 
 
 def convert_legacy_reference_to_template(reference_path: str) -> str:
@@ -97,9 +103,9 @@ def convert_legacy_reference_to_template(reference_path: str) -> str:
         if template.startswith(PATH_TOKEN):
             _, _, conversion = template.partition(CONVERSION_TOKEN)
             template = f"context{template[1:]}"
-            if conversion:
-                template = template + " |fromjson"
-            template = "{" + template + "}"
+            return add_brackets_and_conditionally_add_fromjson(
+                template, bool(conversion)
+            )
         elif template.startswith(VAULT_TOKEN):
             template = convert_deprecated_vault_to_template(template)
 
