@@ -98,18 +98,17 @@ def convert_legacy_reference_to_template(reference_path: str) -> str:
         "<something>!json" |  "{<something> | fromjson}"
     """
     try:
-        template = reference_path
-
-        if template.startswith(PATH_TOKEN):
-            _, _, conversion = template.partition(CONVERSION_TOKEN)
-            template = f"context{template[1:]}"
+        # modify template if it starts with `$.` or `vault:`
+        if reference_path.startswith(PATH_TOKEN):
+            _, _, conversion_check = reference_path.partition(CONVERSION_TOKEN)
+            jinja_dict_referencing = f"context{reference_path[1:]}"
             return add_brackets_and_conditionally_add_fromjson(
-                template, bool(conversion)
+                jinja_dict_referencing, bool(conversion_check)
             )
-        elif template.startswith(VAULT_TOKEN):
-            template = convert_deprecated_vault_to_template(template)
+        elif reference_path.startswith(VAULT_TOKEN):
+            return convert_deprecated_vault_to_template(reference_path)
 
-        return template
+        return reference_path
     except (TypeError, KeyError) as e:
         raise SoclessException(
             f"Unable to convert reference type {type(reference_path)} to template - {e}"
