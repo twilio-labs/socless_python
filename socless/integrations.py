@@ -21,7 +21,7 @@ from .utils import convert_empty_strings_to_none
 from .exceptions import SoclessException, SoclessBootstrapError
 from .aws_classes import LambdaContext
 from .jinja import render_jinja_from_string
-from jinja2.exceptions import TemplateSyntaxError
+from jinja2.exceptions import TemplateSyntaxError, UndefinedError
 
 VAULT_TOKEN = "vault:"
 PATH_TOKEN = "$."
@@ -127,7 +127,7 @@ def resolve_string_parameter(parameter: str, root_object: dict) -> Any:
 
             ## autoescaping is currently disabled, this line may not be necessary
             # resolved = resolved.replace("&#34;", '"').replace("&#39;", "'")
-    except TemplateSyntaxError as e:
+    except (TemplateSyntaxError, UndefinedError) as e:
         print(f"Invalid jinja template error {e} | for template: {template}")
         return template
     return resolved
@@ -315,7 +315,7 @@ def socless_bootstrap(
 
 
 def socless_template_string(message, context):
-    """Render a templated string
+    """DEPRECATED -- Render a templated string.
 
     Args:
         message (str): The templated string to render
@@ -327,6 +327,6 @@ def socless_template_string(message, context):
     try:
         resolved = render_jinja_from_string(message, context)
         return str(resolved)
-    except TemplateSyntaxError as e:
+    except (TemplateSyntaxError, UndefinedError) as e:
         print(f"socless_template_string failed due to syntax error : {e}")
         return message

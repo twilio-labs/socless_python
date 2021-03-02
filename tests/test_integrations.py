@@ -558,10 +558,17 @@ def test_maptostr():
     ) == "{}".format(["hello", "world"])
 
 
-def test_socless_template_string_after_jinja_resolve():
-    resolver = ParameterResolver(mock_context)
-    string_parameter = "Hello {context.dict}"
+def test_socless_template_string_invalid_template():
+    original_message = "Hello {code}"
+    assert (
+        socless_template_string(original_message, mock_context)
+        == original_message
+    )
 
+
+def test_socless_template_string_after_jinja_resolve():
+    string_parameter = "Hello {context.dict}"
+    resolver = ParameterResolver(mock_context)
     resolved_parameter = resolver.resolve_reference(string_parameter)
 
     expected_resolved_param = """Hello {'safe_string': 'Elliot Alderson', 'unsafe_string': "<script>alert('Elliot Alderson')</script>"}"""
