@@ -556,3 +556,15 @@ def test_maptostr():
     assert socless_template_string(
         "{context.unicodelist|maptostr}", mock_context
     ) == "{}".format(["hello", "world"])
+
+
+def test_socless_template_string_after_jinja_resolve():
+    resolver = ParameterResolver(mock_context)
+    string_parameter = "Hello {context.dict}"
+
+    resolved_parameter = resolver.resolve_reference(string_parameter)
+
+    expected_resolved_param = """Hello {'safe_string': 'Elliot Alderson', 'unsafe_string': "<script>alert('Elliot Alderson')</script>"}"""
+
+    assert expected_resolved_param == resolved_parameter
+    assert expected_resolved_param == socless_template_string(resolved_parameter, mock_context)

@@ -324,5 +324,9 @@ def socless_template_string(message, context):
     Returns:
         str: The rendered template
     """
-    resolved = render_jinja_from_string(message, context)
-    return str(resolved)
+    try:
+        resolved = render_jinja_from_string(message, context)
+        return str(resolved)
+    except TemplateSyntaxError as e:
+        print(f"socless_template_string failed due to syntax error : {e}")
+        return message
