@@ -127,9 +127,15 @@ def resolve_string_parameter(parameter: str, root_object: dict) -> Any:
 
             ## autoescaping is currently disabled, this line may not be necessary
             # resolved = resolved.replace("&#34;", '"').replace("&#39;", "'")
-    except (TemplateSyntaxError, UndefinedError) as e:
-        print(f"Invalid jinja template error {e} | for template: {template}")
+    except TemplateSyntaxError as e:
+        socless_log.warn(
+            f"Invalid jinja Template Syntax error {e} | for template: {template}"
+        )
         return template
+    except UndefinedError as e:
+        raise SoclessBootstrapError(
+            f"Undefined variable when resolving parameter: {parameter} template {e} | for template: {template}"
+        )
     return resolved
 
 

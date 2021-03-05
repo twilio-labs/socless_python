@@ -37,8 +37,6 @@ jinja_env = NativeEnvironment(
     # More on undefined types here https://jinja.palletsprojects.com/en/2.11.x/api/#undefined-types
 )
 
-# Define Custom Filters
-
 
 def maptostr(target_list):
     """Casts a list of python types to a list of strings

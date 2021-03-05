@@ -575,3 +575,21 @@ def test_socless_template_string_after_jinja_resolve():
 
     assert expected_resolved_param == resolved_parameter
     assert expected_resolved_param == socless_template_string(resolved_parameter, mock_context)
+
+
+def test_socless_template_string_after_jinja_resolve_multiple_templates():
+    string_parameter = "Hello {context.dict.safe_string}, {context.unicodelist}"
+    resolver = ParameterResolver(mock_context)
+    resolved_parameter = resolver.resolve_reference(string_parameter)
+
+    expected_resolved_param = """Hello Elliot Alderson, ['hello', 'world']"""
+
+    assert expected_resolved_param == resolved_parameter
+    assert expected_resolved_param == socless_template_string(resolved_parameter, mock_context)
+
+
+def test_socless_template_string_after_jinja_resolve_multiple_templates_if_one_is_malformed():
+    string_parameter = "Hello {context.dict.safe_string}, {context.dict.unicodelist}"
+    resolver = ParameterResolver(mock_context)
+    with pytest.raises(SoclessBootstrapError):
+        resolver.resolve_reference(string_parameter)
