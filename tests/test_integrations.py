@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 import boto3, pytest, os
-from tests.conftest import *  #imports testing boilerplate
-from socless.integrations import ParameterResolver, StateHandler, ExecutionContext
+from tests.conftest import *  # imports testing boilerplate
+from socless.integrations import ParameterResolver, StateHandler, ExecutionContext, resolve_string_parameter
 from socless.utils import gen_id
 from socless.exceptions import SoclessBootstrapError
 from .helpers import mock_integration_handler, mock_integration_handler_return_string, MockLambdaContext, mock_sfn_db_context, mock_execution_results_table_entry
@@ -44,19 +44,34 @@ def TestParamResolver(root_obj):
     return ParameterResolver(root_obj)
 
 
-def test_ParameterResolver_resolve_jsonpath(TestParamResolver, root_obj):
-    # assert resolve_json_path works as expected by comparing it with root_obj
-    assert TestParamResolver.resolve_jsonpath("$.artifacts.event.details.firstname") == root_obj['artifacts']['event']['details']['firstname']
+def test_resolve_jsonpath(root_obj):
+    resolved = resolve_string_parameter("$.artifacts.event.details.firstname", root_obj)
+    assert resolved == root_obj['artifacts']['event']['details']['firstname']
 
 
-def test_ParameterResolver_resolve_jsonpath_vault_token(TestParamResolver, root_obj):
-    # assert resolve_json_path works as expected with vault token by comparing it with root_obj
-    assert TestParamResolver.resolve_jsonpath("$.artifacts.event.details.vault_test") == "this came from the vault"
+def test_resolve_jsonpath_vault_token(root_obj):
+    resolved = resolve_string_parameter("$.artifacts.event.details.vault_test", root_obj)
+    assert resolved == "this came from the vault"
 
 
-def test_ParameterResolver_resolve_vault_path(TestParamResolver):
-    # test resolve_vault path
-    assert TestParamResolver.resolve_vault_path("vault:socless_vault_tests.txt") == "this came from the vault"
+def test_resolve_vault_path():
+    resolved = resolve_string_parameter("vault:socless_vault_tests.txt", {})
+    assert resolved == "this came from the vault"
+
+
+def test_resolve_template_with_conversion():
+    resolved = resolve_string_parameter("vault:socless_vault_tests.json!json", {})
+    assert resolved == {'hello': 'world'}
+
+
+def test_resolve_template_preformatted_fromjson():
+    resolved = resolve_string_parameter("""{ '{"foo": "bar"}' |fromjson}""", {})
+    assert resolved == {'foo' : 'bar'}
+
+
+def test_resolve_template_preformatted_fromjson_invalid_json():
+    with pytest.raises(SoclessBootstrapError):
+        resolve_string_parameter("""{ '{"foo": "bar" : bas}' |fromjson}""", {})
 
 
 def test_ParameterResolver_resolve_reference(TestParamResolver):
@@ -92,9 +107,10 @@ def test_ParameterResolver_resolve_parameters(TestParamResolver):
     assert TestParamResolver.resolve_parameters(parameters) == {"firstname": "Sterling", "lastname": "Archer", "middlename": "Malory", "vault.txt": "this came from the vault", "vault.json": {'hello': 'world'}, "acquaintances": [{"firstname": "Malory", "lastname": "Archer"}]}
 
 
-def test_ParameterResolver_apply_conversion_from(TestParamResolver):
-    # Test convert from json
-    assert TestParamResolver.apply_conversion_from('{"text":"hello"}', "json") == {"text" : "hello"}
+def test_ParameterResolver_resolve_strings_with_invalid_jinja(TestParamResolver):
+    # Test with string value
+    test_string = "something {with something else.} and another thing."
+    assert TestParamResolver.resolve_reference(test_string) == test_string
 
 
 def test_ExecutionContext_init():
@@ -523,14 +539,16 @@ def test_safe_string():
 def test_unsafe_string():
     assert (
         socless_template_string("Hello {context.unsafe_string}", mock_context)
-        == "Hello &lt;script&gt;alert('Elliot Alderson')&lt;/script&gt;"
+        # == "Hello &lt;script&gt;alert('Elliot Alderson')&lt;/script&gt;"
+        == "Hello <script>alert('Elliot Alderson')</script>"
     )
 
 
 def test_dictionary_reference():
     assert (
         socless_template_string("Hello {context.dict}", mock_context)
-        == """Hello {'safe_string': 'Elliot Alderson', 'unsafe_string': "&lt;script&gt;alert('Elliot Alderson')&lt;/script&gt;"}"""
+        # == """Hello {'safe_string': 'Elliot Alderson', 'unsafe_string': "&lt;script&gt;alert('Elliot Alderson')&lt;/script&gt;"}"""
+        == """Hello {'safe_string': 'Elliot Alderson', 'unsafe_string': "<script>alert('Elliot Alderson')</script>"}"""
     )
 
 
@@ -538,3 +556,40 @@ def test_maptostr():
     assert socless_template_string(
         "{context.unicodelist|maptostr}", mock_context
     ) == "{}".format(["hello", "world"])
+
+
+def test_socless_template_string_invalid_template():
+    original_message = "Hello {code}"
+    assert (
+        socless_template_string(original_message, mock_context)
+        == original_message
+    )
+
+
+def test_socless_template_string_after_jinja_resolve():
+    string_parameter = "Hello {context.dict}"
+    resolver = ParameterResolver(mock_context)
+    resolved_parameter = resolver.resolve_reference(string_parameter)
+
+    expected_resolved_param = """Hello {'safe_string': 'Elliot Alderson', 'unsafe_string': "<script>alert('Elliot Alderson')</script>"}"""
+
+    assert expected_resolved_param == resolved_parameter
+    assert expected_resolved_param == socless_template_string(resolved_parameter, mock_context)
+
+
+def test_socless_template_string_after_jinja_resolve_multiple_templates():
+    string_parameter = "Hello {context.dict.safe_string}, {context.unicodelist}"
+    resolver = ParameterResolver(mock_context)
+    resolved_parameter = resolver.resolve_reference(string_parameter)
+
+    expected_resolved_param = """Hello Elliot Alderson, ['hello', 'world']"""
+
+    assert expected_resolved_param == resolved_parameter
+    assert expected_resolved_param == socless_template_string(resolved_parameter, mock_context)
+
+
+def test_socless_template_string_after_jinja_resolve_multiple_templates_if_one_is_malformed():
+    string_parameter = "Hello {context.dict.safe_string}, {context.dict.unicodelist}"
+    resolver = ParameterResolver(mock_context)
+    with pytest.raises(SoclessBootstrapError):
+        resolver.resolve_reference(string_parameter)
