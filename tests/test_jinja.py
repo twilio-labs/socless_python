@@ -55,4 +55,4 @@ def test_jinja_from_string_env_var():
     # single quotes are required to escape the . notation for jinja dict accessor
     template = jinja_env.from_string("{env('AWS_REGION')}")
     content = template.render(context={})
-    assert content == "us-west-2"
+    assert content == "us-east-1"
