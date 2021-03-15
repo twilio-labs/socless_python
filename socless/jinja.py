@@ -16,7 +16,7 @@ Code for Jinja2 which Socless uses for templating strings
 """
 from socless.exceptions import SoclessBootstrapError
 from typing import Any
-import json
+import json, os
 from jinja2.nativetypes import NativeEnvironment
 from jinja2 import select_autoescape, StrictUndefined
 from .vault import fetch_from_vault
@@ -69,6 +69,7 @@ def fromjson(string_json: str) -> Any:
         )
 
 
+
 def secret(secret_path: str) -> str:
     """Custom Jinja function/filter that fetches a secret from SSM Parameter Store.
     Args:
@@ -77,8 +78,23 @@ def secret(secret_path: str) -> str:
     return fetch_from_ssm(secret_path)
 
 
+def env(env_var_name: str) -> str:
+    banned_env_vars = [
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+    ]
+    if env_var_name in banned_env_vars:
+        raise SoclessBootstrapError(f"Cannot access disallowed env var: {env_var_name}")
+
+    try:
+        return os.environ[env_var_name]
+    except KeyError:
+        raise SoclessBootstrapError(f"Environment Variable {env_var_name} not found")
+
+
 # Add Custom Functions
-custom_functions = {"vault": vault, "fromjson": fromjson, "secret": secret}
+custom_functions = {"vault": vault, "fromjson": fromjson, "secret": secret, "env": env}
 
 # Add Custom Filters
 custom_filters = {"maptostr": maptostr, **custom_functions}

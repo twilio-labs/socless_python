@@ -68,3 +68,11 @@ def test_jinja_secret():
     template = jinja_env.from_string(f"{{secret('{TEST_SECRET_PATH}')}}")
     content = template.render(context={})
     assert content == "test_parameter_for_socless"
+
+
+def test_jinja_from_string_env_var():
+    # single quotes are required to escape the . notation for jinja dict accessor
+    template = jinja_env.from_string("{env('AWS_REGION')}")
+    content = template.render(context={})
+    assert content == "us-east-1"
+

@@ -25,7 +25,7 @@ class MockLambdaContext:
     """Mock Lambda context object"""
 
     invoked_function_arn = (
-        f"arn:aws:lambda:us-west-2:{account_id}:function:_socless_playground"
+        f"arn:aws:lambda:us-east-1:{account_id}:function:_socless_playground"
     )
 
 
