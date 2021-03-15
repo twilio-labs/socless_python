@@ -13,7 +13,10 @@
 # limitations under the License
 import json, pytest
 from tests.conftest import *  # imports testing boilerplate
+from moto import mock_ssm
 from socless.jinja import fromjson, vault, jinja_env
+
+TEST_SECRET_PATH = "/socless/test/mock_secret"
 
 
 @pytest.fixture()
@@ -27,6 +30,7 @@ def root_obj():
                     "middlename": "Malory",
                     "lastname": "Archer",
                     "vault_test": "vault:socless_vault_tests.txt",
+                    "test_secret": f"{{secret('{TEST_SECRET_PATH}')}}",
                 }
             }
         }
@@ -51,8 +55,24 @@ def test_jinja_from_string_vault():
     assert content == "this came from the vault"
 
 
+@mock_ssm
+def test_jinja_secret():
+    ssm_client = boto3.client("ssm", region_name=os.environ["AWS_REGION"])
+    ssm_client.put_parameter(
+        Name=TEST_SECRET_PATH,
+        Description="A test parameter",
+        Value="test_parameter_for_socless",
+        Type="SecureString",
+    )
+
+    template = jinja_env.from_string(f"{{secret('{TEST_SECRET_PATH}')}}")
+    content = template.render(context={})
+    assert content == "test_parameter_for_socless"
+
+
 def test_jinja_from_string_env_var():
     # single quotes are required to escape the . notation for jinja dict accessor
     template = jinja_env.from_string("{env('AWS_REGION')}")
     content = template.render(context={})
     assert content == "us-east-1"
+

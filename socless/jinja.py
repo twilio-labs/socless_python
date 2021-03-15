@@ -20,6 +20,7 @@ import json, os
 from jinja2.nativetypes import NativeEnvironment
 from jinja2 import select_autoescape, StrictUndefined
 from .vault import fetch_from_vault
+from .ssm import fetch_from_ssm
 
 
 # Jinja Environment Configuration
@@ -68,6 +69,15 @@ def fromjson(string_json: str) -> Any:
         )
 
 
+
+def secret(secret_path: str) -> str:
+    """Custom Jinja function/filter that fetches a secret from SSM Parameter Store.
+    Args:
+        secret_path: "/socless/slack/bot_token"
+    """
+    return fetch_from_ssm(secret_path)
+
+
 def env(env_var_name: str) -> str:
     banned_env_vars = [
         "AWS_ACCESS_KEY_ID",
@@ -84,7 +94,7 @@ def env(env_var_name: str) -> str:
 
 
 # Add Custom Functions
-custom_functions = {"vault": vault, "fromjson": fromjson, "env": env}
+custom_functions = {"vault": vault, "fromjson": fromjson, "secret": secret, "env": env}
 
 # Add Custom Filters
 custom_filters = {"maptostr": maptostr, **custom_functions}

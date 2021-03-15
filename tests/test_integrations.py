@@ -13,6 +13,7 @@
 # limitations under the License
 import boto3, pytest, os
 from tests.conftest import *  # imports testing boilerplate
+from moto import mock_ssm
 from socless.integrations import ParameterResolver, StateHandler, ExecutionContext, resolve_string_parameter
 from socless.utils import gen_id
 from socless.exceptions import SoclessBootstrapError
@@ -74,6 +75,20 @@ def test_resolve_template_preformatted_fromjson_invalid_json():
         resolve_string_parameter("""{ '{"foo": "bar" : bas}' |fromjson}""", {})
 
 
+@mock_ssm
+def test_resolve_string_with_secret():
+    TEST_SECRET_PATH = "/socless/test/mock_secret"
+    ssm_client = boto3.client("ssm", region_name=os.environ["AWS_REGION"])
+    ssm_client.put_parameter(
+        Name=TEST_SECRET_PATH,
+        Description="A test parameter",
+        Value="test_parameter_for_socless",
+        Type="SecureString",
+    )
+    resolved = resolve_string_parameter(f"{{secret('{TEST_SECRET_PATH}')}}", {})
+    assert resolved == "test_parameter_for_socless"
+
+
 def test_ParameterResolver_resolve_reference(TestParamResolver):
     # Test with string value
     assert TestParamResolver.resolve_reference("Hello") == "Hello"
@@ -102,7 +117,7 @@ def test_ParameterResolver_resolve_parameters(TestParamResolver):
                 "firstname": "$.artifacts.event.details.middlename",
                 "lastname": "$.artifacts.event.details.lastname"
             }
-        ]
+        ],
     }
     assert TestParamResolver.resolve_parameters(parameters) == {"firstname": "Sterling", "lastname": "Archer", "middlename": "Malory", "vault.txt": "this came from the vault", "vault.json": {'hello': 'world'}, "acquaintances": [{"firstname": "Malory", "lastname": "Archer"}]}
 
