@@ -65,6 +65,15 @@ def test_resolve_template_with_conversion():
     assert resolved == {'hello': 'world'}
 
 
+def test_resolve_template_with_conversion_as_context_syntax():
+    resolved = resolve_string_parameter("{context.results.Test_Step.file_id | vault | fromjson}", {
+        "results" : {
+            "Test_Step" : {"file_id": "socless_vault_tests.json"}
+        }
+    })
+    assert resolved == {'hello': 'world'}
+
+
 def test_resolve_template_preformatted_fromjson():
     resolved = resolve_string_parameter("""{ '{"foo": "bar"}' |fromjson}""", {})
     assert resolved == {'foo' : 'bar'}
