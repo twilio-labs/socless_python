@@ -37,13 +37,13 @@ def get_playbook_arn(playbook_name, lambda_context):
     )
 
 
-def setup_results_table_for_playbook(
+def setup_results_table_for_playbook_execution(
     execution_id: str, investigation_id: str, playbook_input_as_dict: dict
 ):
     results_table = boto3.resource("dynamodb").Table(
         os.environ.get("SOCLESS_RESULTS_TABLE")
     )
-    _ = results_table.put_item(
+    results_table.put_item(
         Item={
             "execution_id": execution_id,
             "datetime": gen_datetimenow(),
@@ -53,14 +53,13 @@ def setup_results_table_for_playbook(
     )
 
 
-def get_investigation_id_from_dedup_table_or_raise_not_found(dedup_hash: str) -> str:
+def get_investigation_id_from_dedup_table(dedup_hash: str) -> str:
     """Check dedup_table for an investigation_id using the dedup_hash.
     Raises:
         SoclessNotFoundError if dedup_table item is malformed or doesnt exist.
     Logs a warning if a dedup_hash is found but doesn't contain any investigation_id.
     """
-    _cached_dedup_hash = dedup_hash
-    key = {"dedup_hash": _cached_dedup_hash}
+    key = {"dedup_hash": dedup_hash}
     dedup_mapping = dedup_table.get_item(Key=key).get("Item")
 
     if dedup_mapping:
@@ -76,7 +75,7 @@ def get_investigation_id_from_dedup_table_or_raise_not_found(dedup_hash: str) ->
         raise SoclessNotFoundError("dedup_hash not found in dedup_table")
 
 
-def get_investigation_id_from_existing_open_event_or_raise_not_found(
+def get_investigation_id_from_existing_unclosed_event(
     current_investigation_id,
 ) -> str:
     current_investigation = event_table.get_item(
@@ -198,15 +197,11 @@ class CompleteEvent:
             return
         try:
             # check if duplicate
-            temp_investigation_id = (
-                get_investigation_id_from_dedup_table_or_raise_not_found(
-                    self.event.dedup_hash
-                )
+            temp_investigation_id = get_investigation_id_from_dedup_table(
+                self.event.dedup_hash
             )
             self.metadata.investigation_id = (
-                get_investigation_id_from_existing_open_event_or_raise_not_found(
-                    temp_investigation_id
-                )
+                get_investigation_id_from_existing_unclosed_event(temp_investigation_id)
             )
             self.metadata.status_ = "closed"
             self.metadata.is_duplicate = True
@@ -253,7 +248,7 @@ class CompleteEvent:
         )
         playbook_input_as_dict = asdict(playbook_input)
 
-        setup_results_table_for_playbook(
+        setup_results_table_for_playbook_execution(
             self.metadata.execution_id,
             self.metadata.investigation_id,
             playbook_input_as_dict,
@@ -267,7 +262,7 @@ class CompleteEvent:
             error="",
         )
         try:
-            _ = stepfunctions_client.start_execution(
+            stepfunctions_client.start_execution(
                 name=self.metadata.execution_id,
                 stateMachineArn=playbook_arn,
                 input=json.dumps(playbook_input_as_dict),
@@ -284,33 +279,23 @@ class CompleteEvent:
 
 def create_events(event_details: dict, context):
     """Deduplicate and start playbooks from an intial event or list of event details."""
+    # setup event_details format
     event_details.setdefault("created_at", gen_datetimenow())
+    if not isinstance(event_details["details"], list):
+        event_details["details"] = [event_details["details"]]
 
     # format events from list or single details dict
     events_list: List[InitialEvent] = []
-    if isinstance(event_details["details"], list):
-        for details_dict in event_details["details"]:
-            events_list.append(
-                InitialEvent(
-                    details=details_dict,
-                    created_at=event_details["created_at"],
-                    event_type=event_details["event_type"],
-                    playbook=event_details["playbook"],
-                    data_types=event_details["data_types"],
-                    event_meta=event_details["event_meta"],
-                    dedup_keys=event_details["dedup_keys"],
-                )
-            )
-    else:
+    for details_dict in event_details["details"]:
         events_list.append(
             InitialEvent(
-                details=event_details["details"],
+                details=details_dict,
                 created_at=event_details["created_at"],
                 event_type=event_details["event_type"],
                 playbook=event_details["playbook"],
-                data_types=event_details["data_types"],
-                event_meta=event_details["event_meta"],
-                dedup_keys=event_details["dedup_keys"],
+                data_types=event_details.get("data_types", {}),
+                event_meta=event_details.get("event_meta", {}),
+                dedup_keys=event_details.get("dedup_keys", []),
             )
         )
 
@@ -330,23 +315,3 @@ def create_events(event_details: dict, context):
         raise SoclessEventsError(
             f"{len(failures)} of {len(execution_reports)} events failed to start playbooks.\n Failure Reports: \n {failures}"
         )
-
-
-def validate_event(event):
-    """Ensure event contains the necessary keys with correct types."""
-    try:
-        if not event["event_type"]:
-            raise Exception("Error: event_type must be supplied")
-
-        if not isinstance(event["details"], dict):
-            raise Exception("Error: Supplied 'details' is not a dictionary")
-        if not isinstance(event["data_types"], dict):
-            raise Exception("Error: Supplied 'data_types' is not a dictionary")
-        if not isinstance(event["event_meta"], dict):
-            raise Exception("Error: Supplied 'event_meta' is not a dictionary")
-        if not isinstance(event["playbook"], str):
-            raise Exception("Error: Supplied Playbook is not a string")
-        if not isinstance(event["dedup_keys"], list):
-            raise Exception("Error: Supplied 'dedup_keys' field is not a list")
-    except KeyError as e:
-        raise SoclessEventsError(f"Unable to create socless event - Missing Key: {e}")
