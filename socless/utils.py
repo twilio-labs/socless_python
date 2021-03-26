@@ -41,6 +41,16 @@ def gen_datetimenow():
     return datetime.utcnow().isoformat() + "Z"
 
 
+def validate_iso_datetime(iso_datetime: str):
+    """Raises Exception if not correct format"""
+    try:
+        datetime.strptime(iso_datetime, "%Y-%m-%dT%H:%M:%S.%fZ")
+    except Exception:
+        raise Exception(
+            "Error: Supplied 'created_at' field is not ISO8601 millisecond-precision string, shifted to UTC"
+        )
+
+
 def convert_empty_strings_to_none(nested_dict):
     converted_dict = {}
     if isinstance(nested_dict, dict):
