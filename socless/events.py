@@ -16,7 +16,7 @@ Classes and modules for creating and managing events
 """
 from socless.models import EventTableItem, PlaybookArtifacts, PlaybookInput
 from socless.exceptions import SoclessEventsError, SoclessNotFoundError
-from typing import List, Optional
+from typing import List, Optional, Union
 from .logger import socless_log
 import os, boto3, simplejson as json, hashlib
 from dataclasses import dataclass, asdict
@@ -107,6 +107,7 @@ class InitialEvent:
     dedup_keys: list
 
     def __post_init__(self):
+        """TypeCheck the event attributes"""
         validate_iso_datetime(self.created_at)
         if not isinstance(self.details, dict):
             raise Exception("Error: Supplied 'details' is not a dictionary")
@@ -151,6 +152,15 @@ class EventMetadata:
         self.status_ = "open"
         self.is_duplicate = False
 
+    def to_dict(self) -> dict:
+        return {
+            "_id": self._id,
+            "investigation_id": self.investigation_id,
+            "execution_id": self.execution_id,
+            "status_": self.status_,
+            "is_duplicate": self.is_duplicate,
+        }
+
 
 class CompleteEvent:
     """A container for an event, its metadata, and methods to interact with the event.
@@ -159,16 +169,24 @@ class CompleteEvent:
         `metadata`: EventMetadata class, contains investigation_id, dedup status, etc.
     """
 
-    def __init__(self, initial_event: InitialEvent) -> None:
+    def __init__(
+        self, initial_event: Union[InitialEvent, None] = None, **initial_event_args
+    ) -> None:
         """Methods:
         `as_event_table_item`: returns formatted event data for input to events_table
         `deduplicate_and_update_dedup_table`: check dedup_table & event_table to see if this event exists, mutate self.metadata and update dedup_table accordingly
         `put_in_events_table`: put event in events_table (does NOT deuplicate automatically)
         `start_playbook` :
         """
-        self.event: InitialEvent = initial_event
+        if not initial_event:
+            self.event = InitialEvent(**initial_event_args)
+        else:
+            self.event: InitialEvent = initial_event
         # init with assumption of not-duplicate EventMetadata
         self.metadata = EventMetadata()
+
+    def to_dict(self):
+        return {"event": self.event.__dict__, "metadata": self.metadata.to_dict()}
 
     @property
     def as_event_table_item(self):
@@ -220,7 +238,7 @@ class CompleteEvent:
             # Create/Update dedup_hash mapping if the event is an original
             if not self.metadata.is_duplicate:
                 new_dedup_mapping = {
-                    "dedup_hash": self.event.dedup_keys,
+                    "dedup_hash": self.event.dedup_hash,
                     "current_investigation_id": self.metadata.investigation_id,
                 }
                 dedup_table.put_item(Item=new_dedup_mapping)
@@ -285,25 +303,35 @@ def create_events(event_details: dict, context):
         event_details["details"] = [event_details["details"]]
 
     # format events from list or single details dict
-    events_list: List[InitialEvent] = []
+    complete_events_list: List[CompleteEvent] = []
     for details_dict in event_details["details"]:
-        events_list.append(
-            InitialEvent(
-                details=details_dict,
-                created_at=event_details["created_at"],
-                event_type=event_details["event_type"],
-                playbook=event_details["playbook"],
-                data_types=event_details.get("data_types", {}),
-                event_meta=event_details.get("event_meta", {}),
-                dedup_keys=event_details.get("dedup_keys", []),
+        complete_events_list.append(
+            CompleteEvent(
+                **{
+                    "details": details_dict,
+                    "created_at": event_details["created_at"],
+                    "event_type": event_details["event_type"],
+                    "playbook": event_details["playbook"],
+                    "data_types": event_details.get("data_types", {}),
+                    "event_meta": event_details.get("event_meta", {}),
+                    "dedup_keys": event_details.get("dedup_keys", []),
+                }
+                # InitialEvent(
+                #     details=details_dict,
+                #     created_at=event_details["created_at"],
+                #     event_type=event_details["event_type"],
+                #     playbook=event_details["playbook"],
+                #     data_types=event_details.get("data_types", {}),
+                #     event_meta=event_details.get("event_meta", {}),
+                #     dedup_keys=event_details.get("dedup_keys", []),
+                # )
             )
         )
 
     stepfunctions_client = boto3.client("stepfunctions")
     playbook_arn = get_playbook_arn(event_details["playbook"], context)
     execution_reports: List[StartExecutionReport] = []
-    for event in events_list:
-        complete_event = CompleteEvent(initial_event=event)
+    for complete_event in complete_events_list:
         complete_event.deduplicate_and_update_dedup_table()
         complete_event.put_in_events_table()
         exec_report = complete_event.start_playbook(playbook_arn, stepfunctions_client)
@@ -315,3 +343,8 @@ def create_events(event_details: dict, context):
         raise SoclessEventsError(
             f"{len(failures)} of {len(execution_reports)} events failed to start playbooks.\n Failure Reports: \n {failures}"
         )
+
+    return {
+        "events": [event.to_dict() for event in complete_events_list],
+        "execution_reports": [report.__dict__ for report in execution_reports],
+    }
