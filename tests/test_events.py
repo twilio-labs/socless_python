@@ -18,8 +18,9 @@ from .helpers import MockLambdaContext, dict_to_item
 import json, os
 from copy import deepcopy
 import pytest
-from moto import mock_stepfunctions, mock_sts, mock_iam
+from moto import mock_stepfunctions, mock_iam
 from socless.utils import convert_empty_strings_to_none, gen_datetimenow
+from socless.exceptions import SoclessEventsError
 
 from socless.events import (
     InitialEvent,
@@ -74,7 +75,7 @@ MOCK_INVESTIGATION_ID = "mock_investigation_id"
 MOCK_PLAYBOOK_NAME = "ParamsToStateMachineTester"
 
 
-def setup_for_step_functions_test(playbook_name: str):
+def setup_for_step_functions_and_return_client(playbook_name: str):
     iam_client = boto3.client("iam", region_name="us-east-1")
     iam_role_arn = iam_client.role_arn = iam_client.create_role(
         RoleName="new-user",
@@ -92,7 +93,7 @@ def setup_for_step_functions_test(playbook_name: str):
 
 def test_InitialEvent_with_normal_data():
     event = InitialEvent(**MOCK_EVENT)
-    assert event.dedup_hash == "0caa90ad7b7fc101b90a8ce0f9638eb9"
+    assert event.dedup_hash == DEDUP_HASH_FOR_MOCK_EVENT
 
 
 def test_CompleteEvent_as_event_table_item():
@@ -103,6 +104,38 @@ def test_CompleteEvent_as_event_table_item():
     assert item.id == complete_event.metadata._id
     assert isinstance(item, EventTableItem)
     assert item.__dict__ == dataclasses.asdict(item)
+
+
+def test_CompleteEvent__deduplicate_fails_when_dedup_key_not_in_details():
+    # setup duplicate
+    client = boto3.client("dynamodb")
+    client.put_item(
+        TableName=os.environ["SOCLESS_DEDUP_TABLE"],
+        Item=dict_to_item(
+            {
+                "dedup_hash": DEDUP_HASH_FOR_MOCK_EVENT,
+                "current_investigation_id": MOCK_INVESTIGATION_ID,
+            },
+            convert_root=False,
+        ),
+    )
+    client.put_item(
+        TableName=os.environ["SOCLESS_EVENTS_TABLE"],
+        Item=dict_to_item(
+            {
+                "id": MOCK_INVESTIGATION_ID,
+                "investigation_id": "already_running_id",
+                "status_": "open",
+            },
+            convert_root=False,
+        ),
+    )
+
+    # test _deduplicate() with a missing dedup key
+    modified_event = {**MOCK_EVENT, "dedup_keys": ["invalid_key"]}
+    complete_event = CompleteEvent(**modified_event)
+    with pytest.raises(KeyError, match="invalid_key"):
+        complete_event._deduplicate()
 
 
 def test_CompleteEvent__deduplicate():
@@ -137,18 +170,12 @@ def test_CompleteEvent__deduplicate():
     assert complete_event.metadata.is_duplicate
     assert complete_event.metadata.investigation_id == "already_running_id"
 
-    #     event.deduplicate()
-
-
-#     assert event.status_ == "open"
-#     assert event.is_duplicate == False
-
 
 @mock_stepfunctions
 @mock_iam
 def test_CompleteEvent_start_playbook():
     # setup playbook
-    sf_client = setup_for_step_functions_test(MOCK_PLAYBOOK_NAME)
+    sf_client = setup_for_step_functions_and_return_client(MOCK_PLAYBOOK_NAME)
 
     # test
     initial_event = InitialEvent(**MOCK_EVENT)
@@ -166,20 +193,51 @@ def test_CompleteEvent_start_playbook():
 @mock_iam
 def test_create_events():
     # setup playbook
-    _ = setup_for_step_functions_test(MOCK_PLAYBOOK_NAME)
+    _ = setup_for_step_functions_and_return_client(MOCK_PLAYBOOK_NAME)
 
     results = create_events(event_details=MOCK_EVENT, context=MockLambdaContext())
     assert (
         results["events"][0]["metadata"]["investigation_id"]
         == results["execution_reports"][0]["investigation_id"]
     )
+    assert not results["execution_reports"][0]["error"]
+    assert results["execution_reports"][0]["error"] == ""
+
+
+@mock_stepfunctions
+@mock_iam
+def test_create_events_without_dedup_keys():
+    # setup playbook
+    _ = setup_for_step_functions_and_return_client(MOCK_PLAYBOOK_NAME)
+
+    modified_event = {**MOCK_EVENT, "dedup_keys": []}
+    results = create_events(event_details=modified_event, context=MockLambdaContext())
+    assert (
+        results["events"][0]["metadata"]["investigation_id"]
+        == results["execution_reports"][0]["investigation_id"]
+    )
+    assert not results["execution_reports"][0]["error"]
+    assert results["execution_reports"][0]["error"] == ""
+
+
+@mock_stepfunctions
+@mock_iam
+def test_create_events_fails_when_playbook_is_not_deployed():
+    # setup playbook
+    _ = setup_for_step_functions_and_return_client(MOCK_PLAYBOOK_NAME)
+
+    modified_event = {**MOCK_EVENT, "playbook": "doesnt exist"}
+    with pytest.raises(
+        SoclessEventsError, match="1 of 1 events failed to start playbooks."
+    ):
+        _ = create_events(event_details=modified_event, context=MockLambdaContext())
 
 
 @mock_stepfunctions
 @mock_iam
 def test_create_events_with_multiple_details_and_duplicates():
     # setup playbook
-    _ = setup_for_step_functions_test(MOCK_PLAYBOOK_NAME)
+    _ = setup_for_step_functions_and_return_client(MOCK_PLAYBOOK_NAME)
 
     results = create_events(event_details=MOCK_EVENT_BATCH, context=MockLambdaContext())
     assert (
@@ -189,134 +247,88 @@ def test_create_events_with_multiple_details_and_duplicates():
     assert len(results["events"]) == len(results["execution_reports"])
 
 
-# def test_EventCreator_init_happy():
-#     event_details = EventCreator(MOCK_EVENT)
+@mock_stepfunctions
+@mock_iam
+def test_create_events_with_details_as_dict_not_list():
+    # setup playbook
+    _ = setup_for_step_functions_and_return_client(MOCK_PLAYBOOK_NAME)
 
-#     assert event_details.event_type == MOCK_EVENT["event_type"]
-#     assert event_details.details == MOCK_EVENT["details"]
-#     assert event_details.data_types == {}
-#     assert event_details.dedup_keys == MOCK_EVENT["dedup_keys"]
-#     assert event_details.event_meta == {}
-#     assert event_details.playbook == MOCK_EVENT["playbook"]
-
-
-# def test_EventCreator_init_fails_on_invalid_date_format():
-#     edited_event_data = deepcopy(MOCK_EVENT)
-#     edited_event_data["created_at"] = "bad_date"
-
-#     with pytest.raises(Exception):
-#         event_details = EventCreator(edited_event_data)
+    results = create_events(event_details=MOCK_EVENT, context=MockLambdaContext())
+    assert (
+        results["events"][0]["metadata"]["investigation_id"]
+        == results["execution_reports"][0]["investigation_id"]
+    )
+    assert len(results["events"]) == len(results["execution_reports"])
 
 
-# def test_EventCreator_init_fails_on_invalid_event_type():
-#     edited_event_data = deepcopy(MOCK_EVENT)
-#     edited_event_data["event_type"] = ""
-
-#     with pytest.raises(Exception):
-#         event_details = EventCreator(edited_event_data)
-
-
-# def test_EventCreator_init_fails_on_invalid_details():
-#     edited_event_data = deepcopy(MOCK_EVENT)
-#     edited_event_data["details"] = ""
-
-#     with pytest.raises(Exception):
-#         event_details = EventCreator(edited_event_data)
+@mock_stepfunctions
+@mock_iam
+def test_create_events_fails_with_invalid_created_at():
+    # setup playbook
+    _ = setup_for_step_functions_and_return_client(MOCK_PLAYBOOK_NAME)
+    modified_event = {**MOCK_EVENT, "created_at": "bad_date"}
+    with pytest.raises(Exception):
+        _ = create_events(event_details=modified_event, context=MockLambdaContext())
 
 
-# def test_EventCreator_init_fails_when_invalid_data_types():
-#     edited_event_data = deepcopy(MOCK_EVENT)
-#     edited_event_data["data_types"] = ""
-
-#     with pytest.raises(Exception):
-#         event_details = EventCreator(edited_event_data)
-
-
-# def test_EventCreator_init_fails_when_details_is_not_dict():
-#     edited_event_data = deepcopy(MOCK_EVENT)
-#     edited_event_data["details"] = []
-
-#     with pytest.raises(Exception):
-#         event_details = EventCreator(edited_event_data)
+@mock_stepfunctions
+@mock_iam
+def test_create_events_fails_with_invalid_details_type():
+    # setup playbook
+    _ = setup_for_step_functions_and_return_client(MOCK_PLAYBOOK_NAME)
+    modified_event = {**MOCK_EVENT, "details": "should_be_list_or_dict"}
+    with pytest.raises(TypeError):
+        _ = create_events(event_details=modified_event, context=MockLambdaContext())
 
 
-# #! this should fail, need to make changes to events.py so this fails
-# # def test_EventCreator_fails_when_details_is_empty_dict():
-# #     edited_event_data = deepcopy(MOCK_EVENT)
-# #     edited_event_data['details'] = {}
-
-# #     with pytest.raises(Exception):
-# #         event_details = EventCreator(edited_event_data)
-
-
-# def test_EventCreator_init_fails_on_invalid_event_meta():
-#     edited_event_data = deepcopy(MOCK_EVENT)
-#     edited_event_data["event_meta"] = ""
-
-#     with pytest.raises(Exception):
-#         event_details = EventCreator(edited_event_data)
+@mock_stepfunctions
+@mock_iam
+def test_create_events_fails_with_invalid_data_types_type():
+    # setup playbook
+    _ = setup_for_step_functions_and_return_client(MOCK_PLAYBOOK_NAME)
+    modified_event = {**MOCK_EVENT, "data_types": "should_be_list_or_dict"}
+    with pytest.raises(TypeError):
+        _ = create_events(event_details=modified_event, context=MockLambdaContext())
 
 
-# def test_EventCreator_init_fails_on_invalid_playbook():
-#     edited_event_data = deepcopy(MOCK_EVENT)
-#     edited_event_data["playbook"] = 1234
-
-#     with pytest.raises(Exception):
-#         event_details = EventCreator(edited_event_data)
-
-
-# def test_EventCreator_init_fails_when_dedup_keys_not_a_list():
-#     edited_event_data = deepcopy(MOCK_EVENT)
-#     edited_event_data["dedup_keys"] = "key_to_dedupe"
-
-#     with pytest.raises(Exception):
-#         event_details = EventCreator(edited_event_data)
+@mock_stepfunctions
+@mock_iam
+def test_create_events_fails_with_invalid_event_meta_type():
+    # setup playbook
+    _ = setup_for_step_functions_and_return_client(MOCK_PLAYBOOK_NAME)
+    modified_event = {**MOCK_EVENT, "event_meta": "should_be_list_or_dict"}
+    with pytest.raises(TypeError):
+        _ = create_events(event_details=modified_event, context=MockLambdaContext())
 
 
-# def test_EventCreator_dedup_hash_is_correct():
-#     event = EventCreator(MOCK_EVENT)
-#     assert event.dedup_hash == DEDUP_HASH_FOR_MOCK_EVENT
+@mock_stepfunctions
+@mock_iam
+def test_create_events_fails_with_invalid_event_type_type():
+    # setup playbook
+    _ = setup_for_step_functions_and_return_client(MOCK_PLAYBOOK_NAME)
+    modified_event = {**MOCK_EVENT, "event_type": []}
+    with pytest.raises(TypeError):
+        _ = create_events(event_details=modified_event, context=MockLambdaContext())
 
 
-# def test_EventCreator_dedup_hash_fails_when_dedup_keys_do_not_match_any_details():
-#     edited_mock_event = deepcopy(MOCK_EVENT)
-#     edited_mock_event["dedup_keys"] = ["invalid_key"]
+@mock_stepfunctions
+@mock_iam
+def test_create_events_fails_with_invalid_playbook_type():
+    # setup playbook
+    _ = setup_for_step_functions_and_return_client(MOCK_PLAYBOOK_NAME)
+    modified_event = {**MOCK_EVENT, "playbook": []}
+    with pytest.raises(TypeError):
+        _ = create_events(event_details=modified_event, context=MockLambdaContext())
 
-#     event = EventCreator(edited_mock_event)
-#     with pytest.raises(KeyError):
-#         event.dedup_hash
 
-
-# def test_deduplicate_is_duplicate():
-#     #  Setup tables for this event
-#     client = boto3.client("dynamodb")
-#     client.put_item(
-#         TableName=os.environ["SOCLESS_DEDUP_TABLE"],
-#         Item=dict_to_item(
-#             {
-#                 "dedup_hash": DEDUP_HASH_FOR_MOCK_EVENT,
-#                 "current_investigation_id": MOCK_INVESTIGATION_ID,
-#             },
-#             convert_root=False,
-#         ),
-#     )
-#     client.put_item(
-#         TableName=os.environ["SOCLESS_EVENTS_TABLE"],
-#         Item=dict_to_item(
-#             {
-#                 "id": MOCK_INVESTIGATION_ID,
-#                 "investigation_id": "already_running_id",
-#                 "status_": "open",
-#             },
-#             convert_root=False,
-#         ),
-#     )
-
-#     event = EventCreator(MOCK_EVENT)
-#     event.deduplicate()
-#     assert event.is_duplicate == True
-#     assert event.status_ == "closed"
-#     assert event.investigation_id == "already_running_id"
+@mock_stepfunctions
+@mock_iam
+def test_create_events_fails_with_invalid_dedup_keys_type():
+    # setup playbook
+    _ = setup_for_step_functions_and_return_client(MOCK_PLAYBOOK_NAME)
+    modified_event = {**MOCK_EVENT, "dedup_keys": ""}
+    with pytest.raises(TypeError):
+        _ = create_events(event_details=modified_event, context=MockLambdaContext())
 
 
 # def test_deduplicate_is_duplicate_status_closed():

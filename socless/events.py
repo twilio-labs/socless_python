@@ -110,17 +110,17 @@ class InitialEvent:
         """TypeCheck the event attributes"""
         validate_iso_datetime(self.created_at)
         if not isinstance(self.details, dict):
-            raise Exception("Error: Supplied 'details' is not a dictionary")
+            raise TypeError("Error: Supplied 'details' is not a dictionary")
         if not isinstance(self.data_types, dict):
-            raise Exception("Error: Supplied 'data_types' is not a dictionary")
+            raise TypeError("Error: Supplied 'data_types' is not a dictionary")
         if not isinstance(self.event_meta, dict):
-            raise Exception("Error: Supplied 'event_meta' is not a dictionary")
+            raise TypeError("Error: Supplied 'event_meta' is not a dictionary")
         if not isinstance(self.event_type, str):
-            raise Exception("Error: Supplied 'event_type' is not a string")
+            raise TypeError("Error: Supplied 'event_type' is not a string")
         if not isinstance(self.playbook, str):
-            raise Exception("Error: Supplied Playbook is not a string")
+            raise TypeError("Error: Supplied Playbook is not a string")
         if not isinstance(self.dedup_keys, list):
-            raise Exception("Error: Supplied 'dedup_keys' field is not a list")
+            raise TypeError("Error: Supplied 'dedup_keys' field is not a list")
 
     @property
     def dedup_hash(self) -> str:
@@ -297,8 +297,9 @@ class CompleteEvent:
 
 def create_events(event_details: dict, context):
     """Deduplicate and start playbooks from an intial event or list of event details."""
-    # setup event_details format
+    # setup event_details formats
     event_details.setdefault("created_at", gen_datetimenow())
+    # convert "details" to a list of "details" objects (for backwards compatibility)
     if not isinstance(event_details["details"], list):
         event_details["details"] = [event_details["details"]]
 
@@ -316,15 +317,6 @@ def create_events(event_details: dict, context):
                     "event_meta": event_details.get("event_meta", {}),
                     "dedup_keys": event_details.get("dedup_keys", []),
                 }
-                # InitialEvent(
-                #     details=details_dict,
-                #     created_at=event_details["created_at"],
-                #     event_type=event_details["event_type"],
-                #     playbook=event_details["playbook"],
-                #     data_types=event_details.get("data_types", {}),
-                #     event_meta=event_details.get("event_meta", {}),
-                #     dedup_keys=event_details.get("dedup_keys", []),
-                # )
             )
         )
 
