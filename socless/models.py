@@ -46,19 +46,3 @@ class PlaybookInput:
     artifacts: PlaybookArtifacts
     results: dict
     errors: dict
-
-
-@dataclass
-class StateConfig:
-    Name: str
-    Parameters: dict
-
-
-@dataclass
-class SoclessContext:
-    execution_id: Optional[str] = None
-    artifacts: Optional[dict] = None
-    results: Optional[dict] = None
-    errors: Optional[dict] = field(default_factory=dict)
-    task_token: Optional[str] = None
-    state_name: Optional[str] = None
