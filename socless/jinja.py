@@ -29,8 +29,6 @@ jinja_env = NativeEnvironment(
     autoescape=select_autoescape(
         ["html", "xml"], default_for_string=True, default=True
     ),
-    variable_start_string="{",  # this defines the start tokens for a jinja template
-    variable_end_string="}",  # this is the end token for a jinja template
     undefined=StrictUndefined,  # This configures Jinjas behaviour when a template user provides an undefined reference
     ### StrictUndefined here ensures that if the user references something that
     # Doesn't actually exist in the context, an error is raised
@@ -67,7 +65,6 @@ def fromjson(string_json: str) -> Any:
         raise SoclessBootstrapError(
             f"JSONDecodeError in `fromjson` Jinja filter/function. Error: {e} |\n String: {string_json}"
         )
-
 
 
 def secret(secret_path: str) -> str:

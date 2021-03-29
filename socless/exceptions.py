@@ -23,3 +23,9 @@ class SoclessException(Exception):
 
 class SoclessBootstrapError(Exception):
     pass
+
+
+class SoclessVaultError(SoclessException):
+    """Errors geenrated by SOCless vault.py interactions"""
+
+    pass

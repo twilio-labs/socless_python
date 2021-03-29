@@ -50,7 +50,7 @@ def test_raw_function_vault():
 
 def test_jinja_from_string_vault():
     # single quotes are required to escape the . notation for jinja dict accessor
-    template = jinja_env.from_string("{vault('socless_vault_tests.txt')}")
+    template = jinja_env.from_string("{{vault('socless_vault_tests.txt')}}")
     content = template.render(context={})
     assert content == "this came from the vault"
 
@@ -65,14 +65,14 @@ def test_jinja_secret():
         Type="SecureString",
     )
 
-    template = jinja_env.from_string(f"{{secret('{TEST_SECRET_PATH}')}}")
+    # Using 4 curlies here to properly escape "{{secret('{TEST_SECRET_PATH}')}}"
+    template = jinja_env.from_string(f"{{{{secret('{TEST_SECRET_PATH}')}}}}")
     content = template.render(context={})
     assert content == "test_parameter_for_socless"
 
 
 def test_jinja_from_string_env_var():
     # single quotes are required to escape the . notation for jinja dict accessor
-    template = jinja_env.from_string("{env('AWS_REGION')}")
+    template = jinja_env.from_string("{{env('AWS_REGION')}}")
     content = template.render(context={})
     assert content == "us-east-1"
-
