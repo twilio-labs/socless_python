@@ -16,18 +16,15 @@ from socless.models import EventTableItem
 from tests.conftest import *  # imports testing boilerplate
 from .helpers import MockLambdaContext, dict_to_item
 import json, os
-from copy import deepcopy
 import pytest
 from moto import mock_stepfunctions, mock_iam
-from socless.utils import convert_empty_strings_to_none, gen_datetimenow
+from socless.utils import gen_datetimenow
 from socless.exceptions import SoclessEventsError
 
 from socless.events import (
     InitialEvent,
     CompleteEvent,
     create_events,
-    get_investigation_id_from_dedup_table,
-    get_investigation_id_from_existing_unclosed_event,
     get_playbook_arn,
 )
 
@@ -83,7 +80,7 @@ def setup_for_step_functions_and_return_client(playbook_name: str):
     )["Role"]["Arn"]
 
     sf_client = boto3.client("stepfunctions")
-    sm = sf_client.create_state_machine(
+    sf_client.create_state_machine(
         name=playbook_name,
         definition=str(playbook_definition),
         roleArn=iam_role_arn,
@@ -104,6 +101,39 @@ def test_CompleteEvent_as_event_table_item():
     assert item.id == complete_event.metadata._id
     assert isinstance(item, EventTableItem)
     assert item.__dict__ == dataclasses.asdict(item)
+
+
+def test_CompleteEvent__deduplicate():
+    # setup duplicate
+    client = boto3.client("dynamodb")
+    client.put_item(
+        TableName=os.environ["SOCLESS_DEDUP_TABLE"],
+        Item=dict_to_item(
+            {
+                "dedup_hash": DEDUP_HASH_FOR_MOCK_EVENT,
+                "current_investigation_id": MOCK_INVESTIGATION_ID,
+            },
+            convert_root=False,
+        ),
+    )
+    client.put_item(
+        TableName=os.environ["SOCLESS_EVENTS_TABLE"],
+        Item=dict_to_item(
+            {
+                "id": MOCK_INVESTIGATION_ID,
+                "investigation_id": "already_running_id",
+                "status_": "open",
+            },
+            convert_root=False,
+        ),
+    )
+
+    # test _deduplicate()
+    complete_event = CompleteEvent(**MOCK_EVENT)
+    complete_event._deduplicate()
+    assert complete_event.metadata.status_ == "closed"
+    assert complete_event.metadata.is_duplicate
+    assert complete_event.metadata.investigation_id == "already_running_id"
 
 
 def test_CompleteEvent__deduplicate_fails_when_dedup_key_not_in_details():
@@ -138,7 +168,7 @@ def test_CompleteEvent__deduplicate_fails_when_dedup_key_not_in_details():
         complete_event._deduplicate()
 
 
-def test_CompleteEvent__deduplicate():
+def test_CompleteEvent__deduplicate_with_missing_investigation_id():
     # setup duplicate
     client = boto3.client("dynamodb")
     client.put_item(
@@ -146,18 +176,7 @@ def test_CompleteEvent__deduplicate():
         Item=dict_to_item(
             {
                 "dedup_hash": DEDUP_HASH_FOR_MOCK_EVENT,
-                "current_investigation_id": MOCK_INVESTIGATION_ID,
-            },
-            convert_root=False,
-        ),
-    )
-    client.put_item(
-        TableName=os.environ["SOCLESS_EVENTS_TABLE"],
-        Item=dict_to_item(
-            {
-                "id": MOCK_INVESTIGATION_ID,
-                "investigation_id": "already_running_id",
-                "status_": "open",
+                # "current_investigation_id": MOCK_INVESTIGATION_ID,
             },
             convert_root=False,
         ),
@@ -166,9 +185,8 @@ def test_CompleteEvent__deduplicate():
     # test _deduplicate()
     complete_event = CompleteEvent(**MOCK_EVENT)
     complete_event._deduplicate()
-    assert complete_event.metadata.status_ == "closed"
-    assert complete_event.metadata.is_duplicate
-    assert complete_event.metadata.investigation_id == "already_running_id"
+    assert complete_event.metadata.status_ == "open"
+    assert not complete_event.metadata.is_duplicate
 
 
 @mock_stepfunctions
@@ -329,234 +347,3 @@ def test_create_events_fails_with_invalid_dedup_keys_type():
     modified_event = {**MOCK_EVENT, "dedup_keys": ""}
     with pytest.raises(TypeError):
         _ = create_events(event_details=modified_event, context=MockLambdaContext())
-
-
-# def test_deduplicate_is_duplicate_status_closed():
-#     #  Setup tables for this event
-#     client = boto3.client("dynamodb")
-#     client.put_item(
-#         TableName=os.environ["SOCLESS_DEDUP_TABLE"],
-#         Item=dict_to_item(
-#             {
-#                 "dedup_hash": DEDUP_HASH_FOR_MOCK_EVENT,
-#                 "current_investigation_id": MOCK_INVESTIGATION_ID,
-#             },
-#             convert_root=False,
-#         ),
-#     )
-#     client.put_item(
-#         TableName=os.environ["SOCLESS_EVENTS_TABLE"],
-#         Item=dict_to_item(
-#             {
-#                 "id": MOCK_INVESTIGATION_ID,
-#                 "investigation_id": "already_running_id",
-#                 "status_": "closed",
-#             },
-#             convert_root=False,
-#         ),
-#     )
-
-#     event = EventCreator(MOCK_EVENT)
-#     event.deduplicate()
-#     assert event.is_duplicate == False
-#     assert event.status_ == "open"
-
-
-# def test_deduplicate_is_duplicate_no_investigation_id():
-#     #  Setup dedup_hash for this event (without investigation id)
-#     client = boto3.client("dynamodb")
-#     client.put_item(
-#         TableName=os.environ["SOCLESS_DEDUP_TABLE"],
-#         Item=dict_to_item(
-#             {"dedup_hash": DEDUP_HASH_FOR_MOCK_EVENT}, convert_root=False
-#         ),
-#     )
-
-#     # investigation_id NOT saved in dedup table, not duplicate
-#     event = EventCreator(MOCK_EVENT)
-#     event.deduplicate()
-#     assert event.status_ == "open"
-#     assert event.is_duplicate == False
-
-
-# def test_deduplicate_is_unique():
-#     event = EventCreator(MOCK_EVENT)
-#     event.deduplicate()
-#     assert event.status_ == "open"
-#     assert event.is_duplicate == False
-
-
-# def test_EventCreator_create():
-#     event = EventCreator(MOCK_EVENT)
-
-#     created_event = event.create()
-
-#     # check dedup table
-#     dedup_table = boto3.resource("dynamodb").Table(os.environ["SOCLESS_DEDUP_TABLE"])
-#     dedup_mapping = dedup_table.get_item(Key={"dedup_hash": DEDUP_HASH_FOR_MOCK_EVENT})[
-#         "Item"
-#     ]
-
-#     assert (
-#         dedup_mapping["current_investigation_id"] == created_event["investigation_id"]
-#     )
-#     assert event.details == created_event["details"]
-#     assert event.created_at == created_event["created_at"]
-
-
-# def test_EventCreator_create_duplicate():
-#     #  Setup tables for this event
-#     client = boto3.client("dynamodb")
-#     client.put_item(
-#         TableName=os.environ["SOCLESS_DEDUP_TABLE"],
-#         Item=dict_to_item(
-#             {
-#                 "dedup_hash": DEDUP_HASH_FOR_MOCK_EVENT,
-#                 "current_investigation_id": MOCK_INVESTIGATION_ID,
-#             },
-#             convert_root=False,
-#         ),
-#     )
-#     client.put_item(
-#         TableName=os.environ["SOCLESS_EVENTS_TABLE"],
-#         Item=dict_to_item(
-#             {
-#                 "id": MOCK_INVESTIGATION_ID,
-#                 "investigation_id": "already_running_id",
-#                 "status_": "open",
-#             },
-#             convert_root=False,
-#         ),
-#     )
-
-#     edited_event = deepcopy(MOCK_EVENT)
-#     edited_event["dedup_keys"] = ["username"]
-
-#     event = EventCreator(edited_event)
-#     created_event = event.create()
-#     assert created_event["is_duplicate"] == True
-
-
-# def test_EventBatch():
-#     batched_event = EventBatch(MOCK_EVENT_BATCH, MockLambdaContext())
-
-#     assert batched_event.event_type == MOCK_EVENT_BATCH["event_type"]
-#     assert batched_event.created_at == None  # created_at not supplied in mock
-#     assert batched_event.details == MOCK_EVENT_BATCH["details"]
-#     assert batched_event.data_types == {}  # created_at not supplied in mock
-#     assert batched_event.dedup_keys == MOCK_EVENT_BATCH["dedup_keys"]
-#     assert batched_event.event_meta == {}
-#     assert batched_event.playbook == MOCK_EVENT_BATCH["playbook"]
-
-
-# def test_EventBatch_missing_details():
-#     bad_mock_event_batch = deepcopy(MOCK_EVENT_BATCH)
-#     del bad_mock_event_batch["details"]
-#     del bad_mock_event_batch["playbook"]
-
-#     batched_event = EventBatch(bad_mock_event_batch, MockLambdaContext())
-
-#     assert batched_event.playbook == ""
-#     assert batched_event.details == [{}]
-
-
-# def test_EventBatch_invalid_details_type():
-#     bad_mock_event_batch = deepcopy(MOCK_EVENT_BATCH)
-#     bad_mock_event_batch["details"] = "bad_arg"
-
-#     with pytest.raises(Exception):
-#         batched_event = EventBatch(bad_mock_event_batch, MockLambdaContext())
-
-
-# def test_EventBatch_invalid_playbook_type():
-#     bad_mock_event_batch = deepcopy(MOCK_EVENT_BATCH)
-#     bad_mock_event_batch["playbook"] = ["bad_arg"]
-
-#     with pytest.raises(Exception):
-#         batched_event = EventBatch(bad_mock_event_batch, MockLambdaContext())
-
-
-# def test_EventBatch_fails_on_invalid_type_for_dedup_keys():
-#     bad_mock_event_batch = deepcopy(MOCK_EVENT_BATCH)
-#     bad_mock_event_batch["dedup_keys"] = "bad_arg_type"
-
-#     with pytest.raises(Exception):
-#         batched_event = EventBatch(bad_mock_event_batch, MockLambdaContext())
-
-
-# @mock_stepfunctions
-# @mock_sts
-# @mock_iam
-# def test_EventBatch_execute_playbook():
-#     # setup playbook
-#     iam_client = boto3.client("iam", region_name="us-east-1")
-#     sts_client = boto3.client("sts", region_name="us-east-1")
-#     iam_role_name = "new-user"
-#     iam_role_arn = iam_client.role_arn = iam_client.create_role(
-#         RoleName=iam_role_name,
-#         AssumeRolePolicyDocument=json.dumps(iam_trust_policy_document),
-#     )["Role"]["Arn"]
-
-#     client = boto3.client("stepfunctions")
-#     sm = client.create_state_machine(
-#         name="ParamsToStateMachineTester",
-#         definition=str(playbook_definition),
-#         roleArn=iam_role_arn,
-#     )
-
-#     batched_event = EventBatch(MOCK_EVENT_BATCH, MockLambdaContext())
-#     result = batched_event.execute_playbook(convert_empty_strings_to_none(MOCK_EVENT))
-
-#     assert result["status"] == True
-#     assert isinstance(result["message"]["execution_id"], str)
-#     assert isinstance(result["message"]["investigation_id"], str)
-
-
-# def test_EventBatch_execute_playbook_failure():
-#     edited_event = deepcopy(MOCK_EVENT_BATCH)
-#     edited_event["playbook"] = "bad_playbook"
-
-#     batched_event = EventBatch(edited_event, MockLambdaContext())
-#     result = batched_event.execute_playbook(convert_empty_strings_to_none(MOCK_EVENT))
-
-#     assert result["status"] == False
-
-
-# @mock_stepfunctions
-# @mock_sts
-# @mock_iam
-# def test_EventBatch_create_events():
-#     # setup playbook
-#     iam_client = boto3.client("iam", region_name="us-east-1")
-#     sts_client = boto3.client("sts", region_name="us-east-1")
-#     iam_role_name = "new-user"
-#     iam_role_arn = iam_client.role_arn = iam_client.create_role(
-#         RoleName=iam_role_name,
-#         AssumeRolePolicyDocument=json.dumps(iam_trust_policy_document),
-#     )["Role"]["Arn"]
-
-#     client = boto3.client("stepfunctions")
-#     sm = client.create_state_machine(
-#         name="ParamsToStateMachineTester",
-#         definition=str(playbook_definition),
-#         roleArn=iam_role_arn,
-#     )
-
-#     batched_event = EventBatch(MOCK_EVENT_BATCH, MockLambdaContext())
-
-#     result = batched_event.create_events()
-
-#     #! FIX: result['status'] is always true, message is a list of individual
-#     #! playbook responses that may be true or false (error) responses
-#     assert result["status"] == True
-
-#     assert result["message"][0]["status"] == True
-#     assert result["message"][1]["status"] == True
-
-
-# def test_create_events():
-#     from socless.events import create_events
-
-#     create_events_result = create_events(MOCK_EVENT_BATCH, MockLambdaContext())
-
-#     assert create_events_result["status"] == True
