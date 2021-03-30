@@ -21,6 +21,14 @@ class SoclessException(Exception):
     pass
 
 
+class SoclessNotFoundError(Exception):
+    pass
+
+
+class SoclessEventsError(Exception):
+    pass
+
+
 class SoclessBootstrapError(Exception):
     pass
 
