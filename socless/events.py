@@ -359,7 +359,6 @@ def setup_socless_global_state_from_running_step_functions_execution(
 
     NOTE: deduplication is ignored for these executions.
     """
-    print(playbook_event_details)
     event = CompleteEvent(
         InitialEvent(
             details=playbook_event_details,
