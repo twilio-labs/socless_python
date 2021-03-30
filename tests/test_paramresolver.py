@@ -139,3 +139,10 @@ def test_ParameterResolver_resolve_strings_with_invalid_jinja(ParamResolverTestO
     #TODO: Remove this comment. Its here to remind me I modified this test
     test_string = "something {{with something else.}} and another thing."
     assert ParamResolverTestObj.resolve_reference(test_string) == test_string
+
+
+
+def test_ParameterResolver_retains_single_curlies(ParamResolverTestObj):
+    """This test asserts that the jinja_env configuration"""
+    test_string = "[A-Z]{16}"
+    assert ParamResolverTestObj.resolve_reference(test_string) == test_string
