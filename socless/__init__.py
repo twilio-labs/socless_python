@@ -14,9 +14,13 @@
 
 # flake8: noqa
 from .socless import *
-from .events import create_events
+from .events import (
+    create_events,
+    setup_socless_global_state_from_running_step_functions_execution,
+)
 from .vault import *
 from .humaninteraction import init_human_interaction, end_human_interaction
 from .s3 import *
 from .utils import *
+from .exceptions import *
 from .integrations import socless_bootstrap, socless_template_string
