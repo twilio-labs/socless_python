@@ -167,17 +167,11 @@ class CompleteEvent:
     Attributes:
         `event` : InitialEvent class, contains specific event details
         `metadata`: EventMetadata class, contains investigation_id, dedup status, etc.
-    Methods:
-        `to_EventTableItem`: returns formatted event data for input to events_table
-        `deduplicate_and_update_dedup_table`: check dedup_table & event_table to see if this event exists, mutate self.metadata and update dedup_table accordingly
-        `put_in_events_table`: put event in events_table (does NOT deuplicate automatically)
-        `start_playbook` :
     """
 
     def __init__(
         self, initial_event: Union[InitialEvent, None] = None, **initial_event_args
     ) -> None:
-
         if not initial_event:
             self.event = InitialEvent(**initial_event_args)
         else:
@@ -189,7 +183,8 @@ class CompleteEvent:
         return {"event": self.event.__dict__, "metadata": self.metadata.to_dict()}
 
     @property
-    def to_EventTableItem(self) -> EventTableItem:
+    def as_event_table_item(self) -> EventTableItem:
+        """Transforms event into input class for the socless events table."""
         return EventTableItem(
             id=self.metadata._id,
             investigation_id=self.metadata.investigation_id,
@@ -204,11 +199,11 @@ class CompleteEvent:
         )
 
     @property
-    def to_PlaybookInput(self) -> PlaybookInput:
+    def as_playbook_input(self) -> PlaybookInput:
         return PlaybookInput(
             execution_id=self.metadata.execution_id,
             artifacts=PlaybookArtifacts(
-                execution_id=self.metadata.execution_id, event=self.to_EventTableItem
+                execution_id=self.metadata.execution_id, event=self.as_event_table_item
             ),
             results={},
             errors={},
@@ -240,6 +235,9 @@ class CompleteEvent:
 
     def deduplicate_and_update_dedup_table(self):
         """Check if event is duplicate, if not then add it to the dedup table.
+
+        Check dedup_table & event_table to see if this event exists,
+            mutate self.metadata and update dedup_table accordingly.
         Notes:
             Depends on dedup_table & event_table.
         """
@@ -255,15 +253,15 @@ class CompleteEvent:
                 dedup_table.put_item(Item=new_dedup_mapping)
 
     def put_in_events_table(self) -> dict:
-        """Combine event and metadata, then input into socless event_table.
+        """Combine event and metadata, then put_item into socless event_table.
         NOTE: does not check if event is duplicate
         """
-        event_table_item_as_dict = self.to_EventTableItem.__dict__
+        event_table_item_as_dict = self.as_event_table_item.__dict__
         event_table.put_item(Item=event_table_item_as_dict)
         return event_table_item_as_dict
 
     def put_in_results_table(self) -> dict:
-        playbook_input_as_dict = asdict(self.to_PlaybookInput)
+        playbook_input_as_dict = asdict(self.as_playbook_input)
         setup_results_table_for_playbook_execution(
             self.metadata.execution_id,
             self.metadata.investigation_id,
