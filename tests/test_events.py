@@ -97,7 +97,7 @@ def test_InitialEvent_with_normal_data():
 def test_CompleteEvent_to_EventTableItem():
     initial_event = InitialEvent(**MOCK_EVENT)
     complete_event = CompleteEvent(initial_event)
-    item = complete_event.to_EventTableItem
+    item = complete_event.as_event_table_item
 
     assert item.id == complete_event.metadata._id
     assert isinstance(item, EventTableItem)
