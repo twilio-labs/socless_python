@@ -16,11 +16,21 @@ Vault module - Functions for interacting with the vault
 """
 import boto3, os
 from .utils import gen_id
+from .exceptions import SoclessVaultError
 
 __all__ = ["save_to_vault", "fetch_from_vault", "remove_from_vault"]
 
 VAULT_TOKEN = "vault:"
-SOCLESS_VAULT = os.environ["SOCLESS_VAULT"]
+
+
+def get_vault_bucket_name():
+    vault_env_name = "SOCLESS_VAULT"
+    try:
+        return os.environ[vault_env_name]
+    except KeyError as e:
+        raise SoclessVaultError(
+            f"{vault_env_name} environment variable is not configured"
+        ) from e
 
 
 def save_to_vault(content, prefix=""):
@@ -34,7 +44,7 @@ def save_to_vault(content, prefix=""):
         reference) of the saved content
     """
     s3 = boto3.resource("s3")
-    bucket = s3.Bucket(SOCLESS_VAULT)
+    bucket = s3.Bucket(get_vault_bucket_name())
     file_id = gen_id()
     if prefix:
         file_id = prefix + file_id
@@ -59,7 +69,7 @@ def fetch_from_vault(file_id, content_only=False):
         Otherwise, the content and metadata of the object
     """
     s3 = boto3.resource("s3")
-    bucket = s3.Bucket(SOCLESS_VAULT)
+    bucket = s3.Bucket(get_vault_bucket_name())
     obj = bucket.Object(file_id)
     data = obj.get()["Body"].read().decode("utf-8")
     meta = {"content": data}
@@ -79,7 +89,7 @@ def remove_from_vault(file_id):
         dict: The response metadata of the attempt to remove the obejct from vault
     """
     s3 = boto3.resource("s3")
-    bucket = s3.Bucket(SOCLESS_VAULT)
+    bucket = s3.Bucket(get_vault_bucket_name())
     obj = bucket.Object(file_id)
     data = obj.delete()
 
