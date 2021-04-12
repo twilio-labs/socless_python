@@ -26,6 +26,7 @@ from socless.events import (
     CompleteEvent,
     create_events,
     get_playbook_arn,
+    setup_socless_global_state_from_running_step_functions_execution,
 )
 
 account_id = os.environ["MOTO_ACCOUNT_ID"]
@@ -93,7 +94,7 @@ def test_InitialEvent_with_normal_data():
     assert event.dedup_hash == DEDUP_HASH_FOR_MOCK_EVENT
 
 
-def test_CompleteEvent_as_event_table_item():
+def test_CompleteEvent_to_EventTableItem():
     initial_event = InitialEvent(**MOCK_EVENT)
     complete_event = CompleteEvent(initial_event)
     item = complete_event.as_event_table_item
@@ -347,3 +348,18 @@ def test_create_events_fails_with_invalid_dedup_keys_type():
     modified_event = {**MOCK_EVENT, "dedup_keys": ""}
     with pytest.raises(TypeError):
         _ = create_events(event_details=modified_event, context=MockLambdaContext())
+
+
+@mock_stepfunctions
+@mock_iam
+def test_setup_socless_global_state_from_running_step_functions_execution():
+    execution_id = "A_running_exec_id"
+    playbook_name = MOCK_PLAYBOOK_NAME
+    playbook_event_details = MOCK_EVENT["details"][0]
+
+    result = setup_socless_global_state_from_running_step_functions_execution(
+        execution_id, playbook_name, playbook_event_details
+    )
+
+    assert result["artifacts"]["event"]["details"] == playbook_event_details
+    assert result["execution_id"] == execution_id

@@ -172,12 +172,6 @@ class CompleteEvent:
     def __init__(
         self, initial_event: Union[InitialEvent, None] = None, **initial_event_args
     ) -> None:
-        """Methods:
-        `as_event_table_item`: returns formatted event data for input to events_table
-        `deduplicate_and_update_dedup_table`: check dedup_table & event_table to see if this event exists, mutate self.metadata and update dedup_table accordingly
-        `put_in_events_table`: put event in events_table (does NOT deuplicate automatically)
-        `start_playbook` :
-        """
         if not initial_event:
             self.event = InitialEvent(**initial_event_args)
         else:
@@ -189,7 +183,8 @@ class CompleteEvent:
         return {"event": self.event.__dict__, "metadata": self.metadata.to_dict()}
 
     @property
-    def as_event_table_item(self):
+    def as_event_table_item(self) -> EventTableItem:
+        """Transforms event into input class for the socless events table."""
         return EventTableItem(
             id=self.metadata._id,
             investigation_id=self.metadata.investigation_id,
@@ -201,6 +196,17 @@ class CompleteEvent:
             event_type=self.event.event_type,
             event_meta=self.event.event_meta,
             playbook=self.event.playbook,
+        )
+
+    @property
+    def as_playbook_input(self) -> PlaybookInput:
+        return PlaybookInput(
+            execution_id=self.metadata.execution_id,
+            artifacts=PlaybookArtifacts(
+                execution_id=self.metadata.execution_id, event=self.as_event_table_item
+            ),
+            results={},
+            errors={},
         )
 
     def _deduplicate(self):
@@ -229,6 +235,9 @@ class CompleteEvent:
 
     def deduplicate_and_update_dedup_table(self):
         """Check if event is duplicate, if not then add it to the dedup table.
+
+        Check dedup_table & event_table to see if this event exists,
+            mutate self.metadata and update dedup_table accordingly.
         Notes:
             Depends on dedup_table & event_table.
         """
@@ -243,12 +252,22 @@ class CompleteEvent:
                 }
                 dedup_table.put_item(Item=new_dedup_mapping)
 
-    def put_in_events_table(self):
-        """Combine event and metadata, then input into socless event_table.
+    def put_in_events_table(self) -> dict:
+        """Combine event and metadata, then put_item into socless event_table.
         NOTE: does not check if event is duplicate
         """
-        event_table_item = self.as_event_table_item
-        event_table.put_item(Item=event_table_item.__dict__)
+        event_table_item_as_dict = self.as_event_table_item.__dict__
+        event_table.put_item(Item=event_table_item_as_dict)
+        return event_table_item_as_dict
+
+    def put_in_results_table(self) -> dict:
+        playbook_input_as_dict = asdict(self.as_playbook_input)
+        setup_results_table_for_playbook_execution(
+            self.metadata.execution_id,
+            self.metadata.investigation_id,
+            playbook_input_as_dict,
+        )
+        return playbook_input_as_dict
 
     def start_playbook(
         self, playbook_arn, stepfunctions_client
@@ -256,21 +275,7 @@ class CompleteEvent:
         """Create playbook input, save data to results_table & attempt to start execution
         NOTE: depends on results_table
         """
-        playbook_input = PlaybookInput(
-            execution_id=self.metadata.execution_id,
-            artifacts=PlaybookArtifacts(
-                execution_id=self.metadata.execution_id, event=self.as_event_table_item
-            ),
-            results={},
-            errors={},
-        )
-        playbook_input_as_dict = asdict(playbook_input)
-
-        setup_results_table_for_playbook_execution(
-            self.metadata.execution_id,
-            self.metadata.investigation_id,
-            playbook_input_as_dict,
-        )
+        playbook_input_as_dict = self.put_in_results_table()
 
         report = StartExecutionReport(
             investigation_id=self.metadata.investigation_id,
@@ -340,3 +345,37 @@ def create_events(event_details: dict, context):
         "events": [event.to_dict() for event in complete_events_list],
         "execution_reports": [report.__dict__ for report in execution_reports],
     }
+
+
+def setup_socless_global_state_from_running_step_functions_execution(
+    execution_id, playbook_name, playbook_event_details
+):
+    """Convert a regular StepFunctions execution to a SOCless compatible execution.
+
+    The execution_id & playbook_name can be accessed via the StepFunctions context object using the
+        "variable.$" : "$$.variable" syntax inside the StateMachine definition.
+
+    playbook_event_details will take the entire json object passed to the state machine input and use it as the
+        event details (usually accessed via {{context.artifacts.event.details.<var_name>}} socless syntax)
+
+    NOTE: deduplication is ignored for these executions.
+    """
+    event = CompleteEvent(
+        InitialEvent(
+            details=playbook_event_details,
+            created_at=gen_datetimenow(),
+            event_type=playbook_name,
+            playbook=playbook_name,
+            data_types={},
+            event_meta={},
+            dedup_keys=[],
+        )
+    )
+
+    # overwrite the auto-generated execution_id with the currently running StateMachine's id
+    event.metadata.execution_id = execution_id
+
+    event.put_in_events_table()
+    playbook_input_as_dict = event.put_in_results_table()
+
+    return playbook_input_as_dict
