@@ -14,7 +14,7 @@
 import json, pytest
 from tests.conftest import *  # imports testing boilerplate
 from moto import mock_ssm
-from socless.jinja import fromjson, vault, jinja_env
+from socless.jinja import fromjson, vault, jinja_env, fromtimestamp
 
 TEST_SECRET_PATH = "/socless/test/mock_secret"
 
@@ -46,6 +46,26 @@ def test_raw_function_fromjson():
 def test_raw_function_vault():
     content = vault("socless_vault_tests.txt")
     assert content == "this came from the vault"
+
+
+def test_jinja_string_timestamp_fromtimestamp():
+    result = fromtimestamp("1633981527", "UTC")
+    assert result == "2021-10-11T19:45:27+00:00"
+
+
+def test_jinja_string_timestamp_fromtimestamp():
+    result = fromtimestamp(1633981527, "UTC")
+    assert result == "2021-10-11T19:45:27+00:00"
+
+
+def test_jinja_america_los_angeles_fromtimestamp():
+    result = fromtimestamp(1633981527, "America/Los_Angeles")
+    assert result == "2021-10-11T12:45:27-07:00"
+
+
+def test_jinja_america_new_york_fromtimestamp():
+    result = fromtimestamp(1633981527, "America/New_York")
+    assert result == "2021-10-11T15:45:27-04:00"
 
 
 def test_jinja_from_string_vault():
