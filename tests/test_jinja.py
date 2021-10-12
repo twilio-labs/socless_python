@@ -73,10 +73,20 @@ def test_jinja_america_new_york_fromtimestamp():
     assert int_result == string_result == "2021-10-11T15:45:27-04:00"
 
 
-def test_jinja_america_new_york_fromtimestamp():
-    int_result = fromtimestamp(1633981527, "America/New_York")
-    string_result = fromtimestamp("1633981527", "America/New_York")
-    assert int_result == string_result == "2021-10-11T15:45:27-04:00"
+def test_jinja_bad_timestamp_fromtimestamp():
+    with pytest.raises(
+        SoclessBootstrapError,
+        match="^Failed to convert bad_time_stamp to integer. bad_time_stamp is not a valid timestamp. Error:",
+    ):
+        result = fromtimestamp("bad_time_stamp", "America/New_York")
+
+
+def test_jinja_bad_timezone_fromtimestamp():
+    with pytest.raises(
+        SoclessBootstrapError,
+        match="^bad/timezone is not a valid timezone name. Error:",
+    ):
+        result = fromtimestamp("1633981527", "bad/timezone")
 
 
 def test_jinja_from_string_vault():
