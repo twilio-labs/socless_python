@@ -15,7 +15,9 @@
 Code for Jinja2 which Socless uses for templating strings
 """
 from socless.exceptions import SoclessBootstrapError
-from typing import Any
+from typing import Any, Union
+from datetime import datetime
+from pytz import UnknownTimeZoneError, timezone
 import json, os
 from jinja2.nativetypes import NativeEnvironment
 from jinja2 import select_autoescape, StrictUndefined
@@ -90,8 +92,35 @@ def env(env_var_name: str) -> str:
         raise SoclessBootstrapError(f"Environment Variable {env_var_name} not found")
 
 
+def fromtimestamp(timestamp: Union[int, str], tz: str = "UTC") -> str:
+    """Custom Jinja function/filter that converst an epoch timestamp to an ISO datetime (yyyy-mm-ddThh:mm:ss). Timezone sticks with the system's timezone.
+    Args:
+        timestamp (str | int): an epoch timestamp
+        tz: (str): an optional argument that's default to UTC. If provided, tz value must follow be one of the timezone names exists in "pytz.all_timezones". Here're some useful resources:
+            - https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+            - https://gist.github.com/heyalexej/8bf688fd67d7199be4a1682b3eec7568
+    """
+    try:
+        timestamp = int(timestamp)
+    except ValueError as e:
+        SoclessBootstrapError(
+            f"Failed to convert {timestamp} to integer. {timestamp} is not a valid timestamp. Error: {e}"
+        )
+    try:
+        tzinfo = timezone(tz)
+    except UnknownTimeZoneError as e:
+        SoclessBootstrapError(f"{tz} is not a valid timezone name. Error: {e}")
+    return datetime.fromtimestamp(int(timestamp), tz=tzinfo).isoformat()
+
+
 # Add Custom Functions
-custom_functions = {"vault": vault, "fromjson": fromjson, "secret": secret, "env": env}
+custom_functions = {
+    "vault": vault,
+    "fromjson": fromjson,
+    "secret": secret,
+    "env": env,
+    "fromtimestamp": fromtimestamp,
+}
 
 # Add Custom Filters
 custom_filters = {"maptostr": maptostr, **custom_functions}

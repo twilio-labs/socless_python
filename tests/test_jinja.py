@@ -14,7 +14,8 @@
 import json, pytest
 from tests.conftest import *  # imports testing boilerplate
 from moto import mock_ssm
-from socless.jinja import fromjson, vault, jinja_env
+from socless.jinja import fromjson, vault, jinja_env, fromtimestamp
+from socless.exceptions import SoclessBootstrapError
 
 TEST_SECRET_PATH = "/socless/test/mock_secret"
 
@@ -46,6 +47,36 @@ def test_raw_function_fromjson():
 def test_raw_function_vault():
     content = vault("socless_vault_tests.txt")
     assert content == "this came from the vault"
+
+
+def test_jinja_no_timezone_fromtimestamp():
+    int_result = fromtimestamp(1633981527)
+    string_result = fromtimestamp("1633981527")
+    assert int_result == string_result == "2021-10-11T19:45:27+00:00"
+
+
+def test_jinja_utc_timestamp_fromtimestamp():
+    int_result = fromtimestamp(1633981527, "UTC")
+    string_result = fromtimestamp("1633981527", "UTC")
+    assert int_result == string_result == "2021-10-11T19:45:27+00:00"
+
+
+def test_jinja_america_los_angeles_fromtimestamp():
+    int_result = fromtimestamp(1633981527, "America/Los_Angeles")
+    string_result = fromtimestamp("1633981527", "America/Los_Angeles")
+    assert int_result == string_result == "2021-10-11T12:45:27-07:00"
+
+
+def test_jinja_america_new_york_fromtimestamp():
+    int_result = fromtimestamp(1633981527, "America/New_York")
+    string_result = fromtimestamp("1633981527", "America/New_York")
+    assert int_result == string_result == "2021-10-11T15:45:27-04:00"
+
+
+def test_jinja_america_new_york_fromtimestamp():
+    int_result = fromtimestamp(1633981527, "America/New_York")
+    string_result = fromtimestamp("1633981527", "America/New_York")
+    assert int_result == string_result == "2021-10-11T15:45:27-04:00"
 
 
 def test_jinja_from_string_vault():
