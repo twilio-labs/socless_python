@@ -103,13 +103,13 @@ def fromtimestamp(timestamp: Union[int, str], tz: str = "UTC") -> str:
     try:
         timestamp = int(timestamp)
     except ValueError as e:
-        SoclessBootstrapError(
+        raise SoclessBootstrapError(
             f"Failed to convert {timestamp} to integer. {timestamp} is not a valid timestamp. Error: {e}"
         )
     try:
         tzinfo = timezone(tz)
     except UnknownTimeZoneError as e:
-        SoclessBootstrapError(f"{tz} is not a valid timezone name. Error: {e}")
+        raise SoclessBootstrapError(f"{tz} is not a valid timezone name. Error: {e}")
     return datetime.fromtimestamp(int(timestamp), tz=tzinfo).isoformat()
 
 
