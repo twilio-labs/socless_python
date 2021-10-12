@@ -79,14 +79,6 @@ def test_jinja_america_new_york_fromtimestamp():
     assert int_result == string_result == "2021-10-11T15:45:27-04:00"
 
 
-def test_jinja_bad_timestamp_fromtimestamp():
-    with pytest.raises(
-        SoclessBootstrapError,
-        match="^Failed to convert timestamp bad_string to integer: ",
-    ):
-        result = fromtimestamp("bad_string", "America/New_York")
-
-
 def test_jinja_from_string_vault():
     # single quotes are required to escape the . notation for jinja dict accessor
     template = jinja_env.from_string("{{vault('socless_vault_tests.txt')}}")
