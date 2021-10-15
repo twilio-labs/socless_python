@@ -88,8 +88,10 @@ def env(env_var_name: str) -> str:
 
     try:
         return os.environ[env_var_name]
-    except KeyError:
-        raise SoclessBootstrapError(f"Environment Variable {env_var_name} not found")
+    except KeyError as e:
+        raise SoclessBootstrapError(
+            f"Environment Variable {env_var_name} not found"
+        ) from e
 
 
 def fromtimestamp(timestamp: Union[int, str], tz: str = "UTC") -> str:
@@ -105,11 +107,13 @@ def fromtimestamp(timestamp: Union[int, str], tz: str = "UTC") -> str:
     except ValueError as e:
         raise SoclessBootstrapError(
             f"Failed to convert {timestamp} to integer. {timestamp} is not a valid timestamp. Error: {e}"
-        )
+        ) from e
     try:
         tzinfo = timezone(tz)
     except UnknownTimeZoneError as e:
-        raise SoclessBootstrapError(f"{tz} is not a valid timezone name. Error: {e}")
+        raise SoclessBootstrapError(
+            f"{tz} is not a valid timezone name. Error: {e}"
+        ) from e
     return datetime.fromtimestamp(int(timestamp), tz=tzinfo).isoformat()
 
 

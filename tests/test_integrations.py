@@ -46,7 +46,11 @@ def test_ExecutionContext_fetch_context():
                     "id": item_metadata["id"],
                     "created_at": item_metadata["datetime"],
                     "data_types": {},
-                    "details": {"some": "randon text"},
+                    "details": {
+                        "some": "randon text",
+                        "some_int": 47,
+                        "some_float": 0.07,
+                    },
                     "event_type": "Test integrations",
                     "event_meta": {},
                     "investigation_id": item_metadata["investigation_id"],
@@ -74,7 +78,7 @@ def test_ExecutionContext_save_state_results():
     # test ExecutionContext save state results to assert saved item is as expected
     item_metadata = mock_execution_results_table_entry()
     state_name = "test_ExecutionContext_save_state_results"
-    result = {"exist": True}
+    result = {"exist": True, "float": 1.0}
     errors = {"error": "This is an error"}
     execution = ExecutionContext(item_metadata["execution_id"])
     execution.save_state_results(state_name=state_name, result=result, errors=errors)
@@ -87,6 +91,7 @@ def test_ExecutionContext_save_state_results():
     assert saved_result["Item"]["execution_id"] == item_metadata["execution_id"]
     assert saved_result["Item"]["investigation_id"] == item_metadata["investigation_id"]
     assert saved_result["Item"]["datetime"] == item_metadata["datetime"]
+    assert saved_result["Item"]["results"]["results"][state_name] == result
 
 
 def test_StateHandler_init_with_testing_event():
@@ -142,7 +147,11 @@ def test_StateHandler_init_with_live_event():
                     "id": item_metadata["id"],
                     "created_at": item_metadata["datetime"],
                     "data_types": {},
-                    "details": {"some": "randon text"},
+                    "details": {
+                        "some": "randon text",
+                        "some_int": 47,
+                        "some_float": 0.07,
+                    },
                     "event_type": "Test integrations",
                     "event_meta": {},
                     "investigation_id": item_metadata["investigation_id"],
@@ -224,7 +233,11 @@ def test_StateHandler_init_with_live_event_with_errors():
                     "id": item_metadata["id"],
                     "created_at": item_metadata["datetime"],
                     "data_types": {},
-                    "details": {"some": "randon text"},
+                    "details": {
+                        "some": "randon text",
+                        "some_int": 47,
+                        "some_float": 0.07,
+                    },
                     "event_type": "Test integrations",
                     "event_meta": {},
                     "investigation_id": item_metadata["investigation_id"],
@@ -392,7 +405,11 @@ def test_StateHandler_execute_with_live_event_include_context():
                 "id": item_metadata["id"],
                 "created_at": item_metadata["datetime"],
                 "data_types": {},
-                "details": {"some": "randon text"},
+                "details": {
+                    "some": "randon text",
+                    "some_int": 47,
+                    "some_float": 0.07,
+                },
                 "event_type": "Test integrations",
                 "event_meta": {},
                 "investigation_id": item_metadata["investigation_id"],

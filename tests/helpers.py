@@ -60,8 +60,10 @@ def dict_to_item(raw, convert_root=True):
         # item =  {'S': raw if raw else None} #replace empty strings with None
     elif isinstance(raw, bool):
         item = {"BOOL": raw}
-    elif isinstance(raw, int):
+    elif isinstance(raw, (int, float)):
         item = {"N": str(raw)}
+    else:
+        item = {"M": {}}
 
     return item if convert_root else item["M"]
 
@@ -83,7 +85,11 @@ def mock_execution_results_table_entry():
                     "id": random_id,
                     "created_at": date_time,
                     "data_types": {},
-                    "details": {"some": "randon text"},
+                    "details": {
+                        "some": "randon text",
+                        "some_int": 47,
+                        "some_float": 0.07,
+                    },
                     "event_type": "Test integrations",
                     "event_meta": {},
                     "investigation_id": investigation_id,
