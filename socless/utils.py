@@ -74,9 +74,7 @@ def convert_empty_strings_to_none(nested_dict):
 
 
 def replace_decimals(obj: object) -> object:
-    """
-    Replaces instances of `Decimal` type with either `int` or `float`
-    """
+    """Replaces instances of `Decimal` type with either `int` or `float`"""
     if isinstance(obj, list):
         return [replace_decimals(i) for i in obj]
     elif isinstance(obj, dict):
@@ -88,9 +86,7 @@ def replace_decimals(obj: object) -> object:
 
 
 def replace_floats_with_decimals(obj: object) -> object:
-    """
-    Replaces floats with Decimals
-    """
+    """Replaces floats with Decimals"""
     if isinstance(obj, list):
         return [replace_floats_with_decimals(i) for i in obj]
     elif isinstance(obj, dict):
