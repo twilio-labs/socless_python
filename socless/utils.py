@@ -16,8 +16,15 @@ utils.py - Contains utility functions
 """
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
-__all__ = ["gen_id", "gen_datetimenow", "convert_empty_strings_to_none"]
+__all__ = [
+    "gen_id",
+    "gen_datetimenow",
+    "convert_empty_strings_to_none",
+    "replace_decimals",
+    "replace_floats_with_decimals",
+]
 
 
 def gen_id(limit=36):
@@ -64,3 +71,27 @@ def convert_empty_strings_to_none(nested_dict):
             else:
                 converted_dict[k] = v
     return converted_dict
+
+
+def replace_decimals(obj: object) -> object:
+    """Replaces instances of `Decimal` type with either `int` or `float`"""
+    if isinstance(obj, list):
+        return [replace_decimals(i) for i in obj]
+    elif isinstance(obj, dict):
+        return {k: replace_decimals(v) for k, v in obj.items()}
+    elif isinstance(obj, Decimal):
+        return float(obj) if "." in str(obj) else int(obj)
+    else:
+        return obj
+
+
+def replace_floats_with_decimals(obj: object) -> object:
+    """Replaces floats with Decimals"""
+    if isinstance(obj, list):
+        return [replace_floats_with_decimals(i) for i in obj]
+    elif isinstance(obj, dict):
+        return {k: replace_floats_with_decimals(v) for k, v in obj.items()}
+    elif isinstance(obj, float):
+        return Decimal(str(obj))
+    else:
+        return obj

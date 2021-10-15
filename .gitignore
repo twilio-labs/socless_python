@@ -19,3 +19,5 @@ venv*
 .coverage
 htmlcov
 .vscode/*
+# pyenv local config
+.python-version

@@ -17,7 +17,11 @@ Classes and modules for Integrations
 import boto3, os
 from typing import Callable
 from .logger import socless_log
-from .utils import convert_empty_strings_to_none
+from .utils import (
+    convert_empty_strings_to_none,
+    replace_decimals,
+    replace_floats_with_decimals,
+)
 from .exceptions import SoclessException, SoclessBootstrapError
 from .aws_classes import LambdaContext
 from .legacy_jinja import legacy_jinja_env
@@ -51,7 +55,7 @@ class ExecutionContext:
                 f"Error: Unable to get execution_id {self.execution_id} from {RESULTS_TABLE}."
             )
 
-        return item
+        return replace_decimals(item)
 
     def save_state_results(self, state_name, result, errors={}):
         """Save the results of a State's execution to the Execution results table
@@ -61,6 +65,7 @@ class ExecutionContext:
         """
         RESULTS_TABLE = os.environ.get("SOCLESS_RESULTS_TABLE")
         results_table = boto3.resource("dynamodb").Table(RESULTS_TABLE)
+        result = replace_floats_with_decimals(result)
 
         error_expression = ""
         expression_attributes = {":r": result}

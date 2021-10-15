@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License
-from setuptools import setup, find_packages
+from setuptools import setup
 
 
 setup(
@@ -26,6 +26,6 @@ setup(
     ],
     keywords="socless security orchestration automation",
     packages=["socless"],
-    install_requires=["simplejson", "jinja2"],
+    install_requires=["simplejson", "jinja2", "pytz"],
     tests_require=["tox"],
 )
