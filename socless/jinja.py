@@ -16,7 +16,7 @@ Code for Jinja2 which Socless uses for templating strings
 """
 from socless.exceptions import SoclessBootstrapError
 from typing import Any, Union
-from datetime import datetime
+from datetime import datetime, timedelta
 from pytz import UnknownTimeZoneError, timezone
 import json, os
 from jinja2.nativetypes import NativeEnvironment
@@ -95,12 +95,14 @@ def env(env_var_name: str) -> str:
 
 
 def fromtimestamp(timestamp: Union[int, str], tz: str = "UTC") -> str:
-    """Custom Jinja function/filter that converst an epoch timestamp to an ISO datetime (yyyy-mm-ddThh:mm:ss). Timezone sticks with the system's timezone.
+    """Custom Jinja function/filter that convert an epoch timestamp to an ISO datetime (yyyy-mm-ddThh:mm:ss-Timezone). Timezone sticks with the system's timezone.
     Args:
         timestamp (str | int): an epoch timestamp
         tz: (str): an optional argument that's default to UTC. If provided, tz value must follow be one of the timezone names exists in "pytz.all_timezones". Here're some useful resources:
             - https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
             - https://gist.github.com/heyalexej/8bf688fd67d7199be4a1682b3eec7568
+    Return:
+        An ISO8601 datetime string without microseconds
     """
     try:
         timestamp = int(timestamp)
@@ -117,6 +119,42 @@ def fromtimestamp(timestamp: Union[int, str], tz: str = "UTC") -> str:
     return datetime.fromtimestamp(int(timestamp), tz=tzinfo).isoformat()
 
 
+def datetime_from_now(
+    days: int = 0,
+    hours: int = 0,
+    minutes: int = 0,
+    seconds: int = 0,
+    tz: str = "UTC",
+) -> str:
+    """Custom Jinja function/filter that returns an ISO datetime (yyyy-mm-ddThh:mm:ss-Timezone) by calculating time delta use the current time.
+    Args:
+        days: (int): Use positive or negative integers to indicate the number days you want to add or abstract from the current time
+        hours: (int): Use positive or negative integers to indicate the number days you want to add or abstract from the current time
+        minutes: (int): Use positive or negative integers to indicate the number days you want to add or abstract from the current time
+        seconds: (int): Use positive or negative integers to indicate the number days you want to add or abstract from the current time
+        tz: (str): an optional argument that's default to UTC. If provided, tz value must follow be one of the timezone names exists in "pytz.all_timezones". Here're some useful resources:
+            - https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+            - https://gist.github.com/heyalexej/8bf688fd67d7199be4a1682b3eec7568
+    Return:
+        An ISO8601 datetime string without microseconds
+    """
+    try:
+        tzinfo = timezone(tz)
+    except UnknownTimeZoneError as e:
+        raise SoclessBootstrapError(
+            f"{tz} is not a valid timezone name. Error: {e}"
+        ) from e
+    current_datetime = datetime.now(tzinfo).replace(microsecond=0)
+    try:
+        time_delta = timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
+    except Exception as e:
+        raise SoclessBootstrapError(
+            f"Failed to calculate time delta with: days={days}, hours={hours}, minutes={minutes}, seconds={seconds}. Error: {e}"
+        ) from e
+    new_datetime = current_datetime + time_delta
+    return new_datetime.isoformat()
+
+
 # Add Custom Functions
 custom_functions = {
     "vault": vault,
@@ -124,6 +162,7 @@ custom_functions = {
     "secret": secret,
     "env": env,
     "fromtimestamp": fromtimestamp,
+    "datetime_from_now": datetime_from_now,
 }
 
 # Add Custom Filters

@@ -14,7 +14,7 @@
 import json, pytest
 from tests.conftest import *  # imports testing boilerplate
 from moto import mock_ssm
-from socless.jinja import fromjson, vault, jinja_env, fromtimestamp
+from socless.jinja import fromjson, vault, jinja_env, fromtimestamp, datetime_from_now
 from socless.exceptions import SoclessBootstrapError
 
 TEST_SECRET_PATH = "/socless/test/mock_secret"
@@ -117,3 +117,26 @@ def test_jinja_from_string_env_var():
     template = jinja_env.from_string("{{env('AWS_REGION')}}")
     content = template.render(context={})
     assert content == "us-east-1"
+
+
+def test_raw_function_datetime_from_now():
+    two_days_datetime = datetime_from_now(days=1, hours=-1, minutes=30, tz="US/Pacific")
+    assert two_days_datetime.endswith("-07:00")
+
+
+def test_jinja_bad_timezone_datetime_from_now():
+    with pytest.raises(
+        SoclessBootstrapError,
+        match="^bad/timezone is not a valid timezone name. Error:",
+    ):
+        result = datetime_from_now(days=1, hours=-1, minutes=30, tz="bad/timezone")
+
+
+def test_jinja_bad_delta_datetime_from_now():
+    with pytest.raises(
+        SoclessBootstrapError,
+        match="^Failed to calculate time delta with: days=1, hours=-1, minutes=bad_parameter, seconds=0. Error:",
+    ):
+        result = datetime_from_now(
+            days=1, hours=-1, minutes="bad_parameter", tz="US/Pacific"
+        )
